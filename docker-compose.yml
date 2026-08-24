@@ -1,0 +1,29 @@
+services:
+  career-quest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: career-quest:latest
+    container_name: career-quest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8099}:8000"
+    environment:
+      - DATA_DIR=/app/data
+      - CVS_DIR=/app/data/CVs
+      - AI_PROVIDER=${AI_PROVIDER:-gemini}
+      - AI_API_KEY=${AI_API_KEY}
+      - AI_MODEL=${AI_MODEL:-gemini-3.6-flash}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-https://api.anthropic.com/v1}
+      - GROQ_BASE_URL=${GROQ_BASE_URL:-https://api.groq.com/openai/v1}
+    volumes:
+      - ./data:/app/data
+      - ./backend/app:/app/app
+      - ./frontend:/app/frontend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

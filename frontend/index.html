@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CareerQuest — AI Career Intelligence & ATS Tailor Studio</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              400: '#4ade80',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              800: '#166534',
+              900: '#14532d',
+            },
+            surface: {
+              700: '#334155',
+              800: '#1e293b',
+              850: '#172033',
+              900: '#0f172a',
+              950: '#090d16',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <style>
+    [x-cloak] { display: none !important; }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(74, 222, 128, 0.25); border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(74, 222, 128, 0.45); }
+    .glass { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  </style>
+</head>
+
+<body class="bg-surface-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-brand-500 selection:text-slate-950 flex flex-col" x-data="careerQuestApp()" x-init="init()">
+
+  <!-- TOP APP HEADER -->
+  <header class="sticky top-0 z-30 glass border-b border-white/10 px-4 sm:px-8 py-3 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-brand-500/20 ring-1 ring-white/20">
+        <i class="fa-solid fa-compass text-slate-950 text-base font-black"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-base sm:text-lg font-black tracking-tight text-white">CareerQuest</h1>
+          <span class="px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/30 text-[10px] font-bold font-mono tracking-wider">v1.0</span>
+        </div>
+        <p class="text-xs text-slate-400 hidden sm:block">AI Career Intelligence &bull; Multi-Platform Discovery &bull; ATS Studio</p>
+      </div>
+    </div>
+
+    <!-- Center Navigation Tabs -->
+    <div class="flex items-center bg-surface-900/90 p-1 rounded-2xl border border-white/10 text-xs">
+      <button @click="activeView = 'discovery'" :class="activeView === 'discovery' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-3 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5">
+        <i class="fa-solid fa-compass"></i>
+        <span>Discovery</span>
+      </button>
+      <button @click="activeView = 'pipeline'" :class="activeView === 'pipeline' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-3 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5 relative">
+        <i class="fa-solid fa-layer-group"></i>
+        <span>Pipeline</span>
+        <span x-show="jobs.length > 0" class="ml-1 px-1.5 py-0.2 rounded-full bg-brand-500 text-slate-950 font-bold text-[10px]" x-text="jobs.length"></span>
+      </button>
+      <button @click="activeView = 'profile'" :class="activeView === 'profile' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-3 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5">
+        <i class="fa-solid fa-user-gear"></i>
+        <span class="hidden sm:inline">Master</span> <span>Profile</span>
+      </button>
+      <button @click="activeView = 'settings'" :class="activeView === 'settings' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-2.5 sm:px-3 py-1.5 rounded-xl transition flex items-center gap-1.5">
+        <i class="fa-solid fa-sliders"></i>
+      </button>
+    </div>
+
+    <!-- Candidate Profile Pill & Action Button -->
+    <div class="flex items-center gap-2.5">
+      <button @click="openAddJobModal()" class="px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-600 hover:from-brand-500 hover:to-emerald-500 text-slate-950 font-bold text-xs shadow-lg shadow-brand-600/30 flex items-center gap-1.5 active:scale-95 transition">
+        <i class="fa-solid fa-plus font-bold"></i>
+        <span class="hidden sm:inline">Add Job</span>
+      </button>
+      <div class="hidden md:flex items-center gap-2 pl-2 border-l border-white/10">
+        <div class="w-8 h-8 rounded-full bg-surface-800 border border-brand-500/30 flex items-center justify-center text-brand-400 font-bold text-xs" x-text="profile.full_name ? profile.full_name.charAt(0) : 'U'"></div>
+        <div class="text-left">
+          <span class="text-xs font-bold text-white block leading-tight truncate max-w-[120px]" x-text="profile.full_name || 'Candidate'"></span>
+          <span class="text-[10px] text-slate-400 block leading-tight" x-text="systemStatus.ai_provider ? `${systemStatus.ai_provider.toUpperCase()}` : 'AI Ready'"></span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN VIEW CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+    <!-- VIEW 1: JOB DISCOVERY -->
+    <section x-show="activeView === 'discovery'" class="space-y-5">
+      <!-- Search & Parallel Scan Banner -->
+      <div class="p-6 rounded-3xl bg-gradient-to-br from-surface-900 via-surface-900/90 to-surface-850 border border-white/10 shadow-2xl relative overflow-hidden">
+        <div class="max-w-3xl space-y-3 relative z-10">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-semibold">
+            <i class="fa-solid fa-bolt-lightning text-amber-300"></i> Parallel Scraping &bull; 17 Top Tech Portals (Greenhouse + Ashby)
+          </div>
+          <h2 class="text-xl sm:text-2xl font-black text-white tracking-tight">Discover Verified High-Match Tech Opportunities</h2>
+          <p class="text-xs sm:text-sm text-slate-300">Scans live career portals, filters noise, calibrates compensation ranges, and matches directly against your Master Profile.</p>
+          
+          <div class="pt-2 flex items-center gap-3 flex-wrap">
+            <button @click="startParallelScan()" :disabled="scanState.active" class="px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs shadow-lg shadow-brand-500/25 flex items-center gap-2 active:scale-95 transition disabled:opacity-50">
+              <i class="fa-solid fa-radar text-sm" :class="scanState.active ? 'animate-spin' : ''"></i>
+              <span x-text="scanState.active ? 'Scanning Portals...' : 'Launch Parallel Discovery Scan'"></span>
+            </button>
+            <span class="text-xs text-slate-400" x-text="`${digestItems.length} verified positions discovered`"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Discovery Filter Bar -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 p-4 rounded-2xl bg-surface-900 border border-white/5 text-xs">
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Search Keywords</label>
+          <input type="text" x-model="digestFilters.q" @input.debounce.300ms="fetchDigest()" placeholder="Role, company, location..." class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Category</label>
+          <select x-model="digestFilters.category" @change="fetchDigest()" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+            <option value="all">All Categories</option>
+            <option value="AI Infra & Compute">AI Infra & Compute</option>
+            <option value="AV & Robotics">AV & Robotics</option>
+            <option value="Big Data & Cloud">Big Data & Cloud</option>
+            <option value="Cybersecurity">Cybersecurity</option>
+            <option value="Fintech & Quant">Fintech & Quant</option>
+            <option value="Enterprise SaaS">Enterprise SaaS</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Region</label>
+          <select x-model="digestFilters.region" @change="fetchDigest()" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+            <option value="all">Global & Remote</option>
+            <option value="US">United States</option>
+            <option value="Israel">Israel</option>
+            <option value="Remote">100% Remote</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Min Match Score</label>
+          <select x-model="digestFilters.min_match" @change="fetchDigest()" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+            <option value="0">All Match Scores</option>
+            <option value="80">80%+ Strong Fit</option>
+            <option value="90">90%+ Exact Fit</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Sort By</label>
+          <select x-model="digestFilters.sort_by" @change="fetchDigest()" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+            <option value="match_desc">Highest Match %</option>
+            <option value="date_desc">Most Recent</option>
+            <option value="salary_desc">Estimated Salary</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Opportunities Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <template x-for="item in digestItems" :key="item.id">
+          <div class="p-5 rounded-2xl bg-surface-900 border border-white/5 hover:border-brand-500/40 transition flex flex-col justify-between space-y-4 shadow-lg group">
+            <div class="space-y-2.5">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <span class="px-2 py-0.5 rounded-md bg-surface-800 text-slate-300 text-[10px] font-bold uppercase tracking-wider" x-text="item.category"></span>
+                  <h3 class="text-sm font-bold text-white group-hover:text-brand-400 transition mt-1 line-clamp-1" x-text="item.title"></h3>
+                  <p class="text-xs text-slate-400 font-semibold" x-text="item.company"></p>
+                </div>
+                <div class="px-2.5 py-1 rounded-xl font-bold font-mono text-xs shadow-inner" :class="item.match_score >= 90 ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' : 'bg-brand-500/15 text-brand-300 border border-brand-500/30'" x-text="`${item.match_score}%`"></div>
+              </div>
+
+              <div class="text-xs text-slate-300 space-y-1">
+                <div class="flex items-center gap-2 text-slate-400 text-[11px]">
+                  <i class="fa-solid fa-location-dot text-rose-400/80"></i>
+                  <span x-text="item.location"></span>
+                </div>
+                <div class="flex items-center gap-2 text-emerald-400 font-semibold text-[11px]">
+                  <i class="fa-solid fa-money-bill-wave"></i>
+                  <span x-text="item.salary_display || 'Competitive Market Comp'"></span>
+                </div>
+              </div>
+            </div>
+
+            <div class="pt-3 border-t border-white/5 flex items-center justify-between gap-2">
+              <a :href="item.url" target="_blank" class="text-xs text-slate-400 hover:text-white flex items-center gap-1 font-semibold">
+                <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> Link
+              </a>
+              <div class="flex items-center gap-2">
+                <button @click="rateDigestInterest(item, 1)" class="p-1.5 rounded-lg text-xs" :class="item.interest_rating === 1 ? 'bg-emerald-500 text-slate-950 font-bold' : 'bg-surface-950 text-slate-400 hover:text-emerald-400'">
+                  <i class="fa-solid fa-thumbs-up"></i>
+                </button>
+                <button @click="rateDigestInterest(item, -1)" class="p-1.5 rounded-lg text-xs" :class="item.interest_rating === -1 ? 'bg-rose-500 text-white font-bold' : 'bg-surface-950 text-slate-400 hover:text-rose-400'">
+                  <i class="fa-solid fa-thumbs-down"></i>
+                </button>
+                <button @click="addDigestToPipeline(item)" class="px-3 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold shadow flex items-center gap-1 active:scale-95 transition">
+                  <i class="fa-solid fa-plus text-[10px]"></i> <span>Wishlist</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- VIEW 2: PIPELINE KANBAN -->
+    <section x-show="activeView === 'pipeline'" class="space-y-4">
+      <div class="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h2 class="text-lg font-bold text-white">Application Pipeline & Tailor Studio</h2>
+          <p class="text-xs text-slate-400">Track and customize single-page ATS resumes, outreach, and mock prep for active applications.</p>
+        </div>
+      </div>
+
+      <!-- Kanban Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        <template x-for="col in pipelineColumns" :key="col.id">
+          <div class="p-3 rounded-2xl bg-surface-900 border border-white/5 flex flex-col space-y-2 min-h-[400px]">
+            <div class="flex items-center justify-between pb-2 border-b border-white/5">
+              <span class="text-xs font-bold text-white uppercase tracking-wider" x-text="col.title"></span>
+              <span class="px-2 py-0.2 rounded-full bg-surface-800 text-slate-400 text-[10px] font-mono font-bold" x-text="jobsByStatus(col.id).length"></span>
+            </div>
+
+            <div class="flex-1 space-y-2 overflow-y-auto custom-scrollbar">
+              <template x-for="job in jobsByStatus(col.id)" :key="job.id">
+                <div @click="openJobStudio(job)" class="p-3.5 rounded-xl bg-surface-950 border border-white/5 hover:border-brand-500/40 cursor-pointer transition space-y-2 shadow group">
+                  <div class="flex items-start justify-between gap-1.5">
+                    <h4 class="text-xs font-bold text-white group-hover:text-brand-400 transition line-clamp-1" x-text="job.title"></h4>
+                    <span class="text-[10px] font-bold text-brand-400 font-mono" x-text="`${job.match_score}%`"></span>
+                  </div>
+                  <p class="text-[11px] text-slate-400" x-text="job.company"></p>
+                  <div class="pt-1 flex items-center justify-between text-[10px] text-slate-500">
+                    <span x-text="job.salary || 'Market Rate'"></span>
+                    <i class="fa-solid fa-file-lines text-slate-400 group-hover:text-brand-400 transition"></i>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <!-- VIEW 3: MASTER PROFILE & UPLOAD -->
+    <section x-show="activeView === 'profile'" class="space-y-6 max-w-4xl mx-auto">
+      <div class="p-6 rounded-3xl bg-surface-900 border border-white/10 space-y-6">
+        <div class="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-white/5">
+          <div>
+            <h2 class="text-lg font-bold text-white">Candidate Master Profile</h2>
+            <p class="text-xs text-slate-400">Single Source of Truth for all tailored resumes, ATS formatting, and AI intelligence.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow flex items-center gap-1.5 cursor-pointer active:scale-95 transition">
+              <i class="fa-solid fa-file-arrow-up"></i>
+              <span>Upload Resume (PDF/YAML)</span>
+              <input type="file" @change="uploadMasterResume($event)" class="hidden" accept=".pdf,.txt,.md,.yaml,.yml">
+            </label>
+            <button @click="saveProfile()" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs shadow flex items-center gap-1.5 active:scale-95 transition">
+              <i class="fa-solid fa-floppy-disk"></i>
+              <span>Save Profile</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Contact Registry Form -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+          <div>
+            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Full Name</label>
+            <input type="text" x-model="profile.full_name" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Email Address</label>
+            <input type="email" x-model="profile.email" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Phone Number</label>
+            <input type="text" x-model="profile.phone" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Location / Timezone</label>
+            <input type="text" x-model="profile.location" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Citizenship / Work Auth</label>
+            <input type="text" x-model="profile.citizenship" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">LinkedIn URL</label>
+            <input type="text" x-model="profile.linkedin_url" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Executive Headline / Tagline</label>
+          <input type="text" x-model="profile.tagline" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 4: SYSTEM & PORTAINER SETTINGS -->
+    <section x-show="activeView === 'settings'" class="space-y-6 max-w-3xl mx-auto">
+      <div class="p-6 rounded-3xl bg-surface-900 border border-white/10 space-y-5">
+        <h2 class="text-lg font-bold text-white">System & AI Gateway Configuration</h2>
+        <p class="text-xs text-slate-400">CareerQuest supports dynamic multi-model AI providers configurable via environment variables in Docker / Portainer.</p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <div class="p-4 rounded-2xl bg-surface-950 border border-white/5 space-y-1">
+            <span class="text-[10px] uppercase font-bold text-slate-400">Active AI Provider</span>
+            <h3 class="text-sm font-bold text-brand-400" x-text="systemStatus.ai_provider?.toUpperCase()"></h3>
+            <p class="text-slate-400 text-[11px]" x-text="`Model: ${systemStatus.ai_model}`"></p>
+          </div>
+          <div class="p-4 rounded-2xl bg-surface-950 border border-white/5 space-y-1">
+            <span class="text-[10px] uppercase font-bold text-slate-400">Database Engine</span>
+            <h3 class="text-sm font-bold text-emerald-400">SQLite (WAL Mode)</h3>
+            <p class="text-slate-400 text-[11px]" x-text="systemStatus.data_dir"></p>
+          </div>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-surface-950 border border-brand-500/20 space-y-2">
+          <h4 class="text-xs font-bold text-brand-400 uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-cube"></i> Portainer Stack Deployment Ready
+          </h4>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Deploy CareerQuest on any Portainer server with persistent storage mapped to <code>/app/data</code>. Change your AI backend simply by setting <code>AI_PROVIDER=openai</code>, <code>AI_PROVIDER=anthropic</code>, or <code>AI_PROVIDER=ollama</code>.
+          </p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- TAILOR STUDIO MODAL (Full 10 Feature Suite) -->
+  <div x-show="modals.studio" x-cloak class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="glass border-t sm:border border-white/10 rounded-t-3xl sm:rounded-3xl max-w-5xl w-full max-h-[94vh] flex flex-col shadow-2xl overflow-hidden" @click.away="closeJobStudio()">
+      
+      <!-- Studio Header -->
+      <div class="px-6 py-3.5 border-b border-white/5 bg-surface-900/90 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="text-base font-bold text-white truncate" x-text="selectedJob?.title"></h3>
+            <a :href="selectedJob?.id ? `/api/v1/jobs/${selectedJob.id}/cv.pdf` : '#'" target="_blank" class="px-2 py-0.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold">
+              <i class="fa-solid fa-file-pdf"></i> PDF
+            </a>
+            <button @click="copyJobMarkdown()" class="px-2 py-0.5 rounded-lg bg-surface-950 hover:bg-surface-800 text-slate-300 border border-white/10 text-[10px] font-bold">
+              <i class="fa-brands fa-markdown text-blue-400"></i> Copy .md
+            </button>
+          </div>
+          <p class="text-xs text-slate-400" x-text="`${selectedJob?.company} &bull; ${selectedJob?.location || 'Global'}`"></p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button @click="freezeApplicationSnapshot()" class="px-3 py-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition">
+            <i class="fa-solid fa-camera"></i> <span>Snapshot & Apply</span>
+          </button>
+          <div class="flex items-center bg-surface-950 p-1 rounded-xl border border-white/10 text-xs">
+            <button @click="studioTab = 'cv'" :class="studioTab === 'cv' ? 'bg-brand-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="px-3 py-1 rounded-lg">CV Studio</button>
+            <button @click="studioTab = 'outreach'; fetchInmails()" :class="studioTab === 'outreach' ? 'bg-brand-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="px-3 py-1 rounded-lg">Outreach</button>
+            <button @click="studioTab = 'prep'" :class="studioTab === 'prep' ? 'bg-brand-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="px-3 py-1 rounded-lg">STAR & Prep</button>
+            <button @click="studioTab = 'intel'" :class="studioTab === 'intel' ? 'bg-brand-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="px-3 py-1 rounded-lg">Comp & Intel</button>
+          </div>
+          <button @click="closeJobStudio()" class="p-1.5 text-slate-400 hover:text-white rounded-lg"><i class="fa-solid fa-xmark text-sm"></i></button>
+        </div>
+      </div>
+
+      <!-- Studio Tab 1: CV Tailoring, Live Preview & Diff -->
+      <div x-show="studioTab === 'cv'" class="grid grid-cols-1 lg:grid-cols-12 flex-1 overflow-y-auto lg:overflow-hidden">
+        <div class="lg:col-span-6 p-5 space-y-4 overflow-y-auto custom-scrollbar border-b lg:border-b-0 lg:border-r border-white/5">
+          <div>
+            <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Custom Tailored Summary</label>
+            <textarea x-model="selectedJob.custom_summary" @input.debounce.500ms="updatePreview()" rows="3" class="w-full bg-surface-950 border border-white/10 rounded-xl p-3 text-xs text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none"></textarea>
+          </div>
+
+          <!-- Interactive Bullet Pool (Option C) -->
+          <div class="space-y-2 pt-1 border-t border-white/5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-white flex items-center gap-1.5"><i class="fa-solid fa-list-check text-brand-400"></i> Bullet Pool Bank</span>
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-mono font-bold bg-brand-500/10 text-brand-400 border border-brand-500/30" x-text="`${selectedBulletIds.length} / 8 Bullets`"></span>
+            </div>
+            <div class="space-y-2 max-h-56 overflow-y-auto custom-scrollbar">
+              <template x-for="exp in (profile.experience || [])" :key="exp.company">
+                <div class="p-2.5 rounded-xl bg-surface-950 border border-white/5 space-y-1">
+                  <div class="text-[11px] font-bold text-slate-300" x-text="`${exp.company} — ${exp.role}`"></div>
+                  <template x-for="b in (exp.bullets || [])" :key="b.id">
+                    <label class="flex items-start gap-2 p-1 rounded-lg hover:bg-surface-900 cursor-pointer">
+                      <input type="checkbox" :checked="selectedBulletIds.includes(b.id)" @change="toggleBullet(b.id)" class="mt-0.5 rounded border-white/20 text-brand-500">
+                      <span class="text-[11px] text-slate-300 leading-snug" x-html="b.text"></span>
+                    </label>
+                  </template>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <div class="lg:col-span-6 p-5 flex flex-col justify-between bg-surface-950/40 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center bg-surface-900 p-1 rounded-xl border border-white/10 text-xs">
+              <button @click="cvSubView = 'preview'" :class="cvSubView === 'preview' ? 'bg-brand-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="px-3 py-1 rounded-lg">Preview</button>
+              <button @click="cvSubView = 'ats'; runAtsAudit()" :class="cvSubView === 'ats' ? 'bg-brand-600 text-white font-bold' : 'text-slate-400 hover:text-white'" class="px-3 py-1 rounded-lg">ATS Audit</button>
+            </div>
+            <button @click="compilePdf()" :disabled="compilingPdf" class="px-4 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-bold rounded-xl shadow flex items-center gap-1.5">
+              <i class="fa-solid fa-file-pdf" :class="compilingPdf ? 'animate-bounce' : ''"></i>
+              <span x-text="compilingPdf ? 'Compiling...' : 'Save 1-Page PDF'"></span>
+            </button>
+          </div>
+
+          <div x-show="cvSubView === 'preview'" class="flex-1 bg-white rounded-xl shadow-2xl overflow-hidden border border-white/20 min-h-[380px]">
+            <iframe :srcdoc="previewHtml" class="w-full h-full border-none"></iframe>
+          </div>
+
+          <div x-show="cvSubView === 'ats'" class="flex-1 bg-surface-950 rounded-2xl border border-white/10 p-4 overflow-y-auto custom-scrollbar space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-white/10">
+              <span class="text-xs font-bold text-white">ATS Parsing Compliance</span>
+              <span class="text-lg font-bold font-mono text-emerald-400" x-text="`${atsResult?.ats_score || 95}%`"></span>
+            </div>
+            <template x-for="chk in (atsResult?.checks || [])" :key="chk.name">
+              <div class="p-2.5 rounded-xl bg-surface-900 border border-white/5 flex items-start gap-2 text-xs">
+                <i class="fa-solid text-xs mt-0.5" :class="chk.passed ? 'fa-circle-check text-emerald-400' : 'fa-triangle-exclamation text-rose-400'"></i>
+                <div>
+                  <span class="font-bold text-white block" x-text="chk.name"></span>
+                  <p class="text-[11px] text-slate-300 mt-0.5" x-text="chk.detail"></p>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Studio Tab 2: Outreach -->
+      <div x-show="studioTab === 'outreach'" class="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+        <div class="max-w-2xl mx-auto space-y-4">
+          <h3 class="text-sm font-bold text-white">Direct Recruiter & Hiring Manager InMail Variants</h3>
+          <div class="space-y-3">
+            <div class="p-4 rounded-2xl bg-surface-950 border border-white/10 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-brand-300 uppercase">1. Hiring Manager Pitch</span>
+                <button @click="copyText(inmailVariants?.hiring_manager)" class="px-2.5 py-1 rounded-lg bg-brand-600 text-white text-xs font-bold">Copy</button>
+              </div>
+              <p class="text-xs text-slate-200 leading-relaxed" x-text="inmailVariants?.hiring_manager || 'Generating...'"></p>
+            </div>
+            <div class="p-4 rounded-2xl bg-surface-950 border border-white/10 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-brand-300 uppercase">2. Recruiter Follow-up</span>
+                <button @click="copyText(inmailVariants?.recruiter_followup)" class="px-2.5 py-1 rounded-lg bg-brand-600 text-white text-xs font-bold">Copy</button>
+              </div>
+              <p class="text-xs text-slate-200 leading-relaxed" x-text="inmailVariants?.recruiter_followup || 'Generating...'"></p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Studio Tab 3: STAR Mock Prep -->
+      <div x-show="studioTab === 'prep'" class="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+        <div class="max-w-3xl mx-auto space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white">10 Anticipated Technical & STAR Questions</h3>
+            <button @click="generateMockPrep()" class="px-3.5 py-1.5 rounded-xl bg-brand-600 text-white text-xs font-bold">⚡ Generate 10 Questions</button>
+          </div>
+          <div class="space-y-3">
+            <template x-for="(qa, idx) in (mockQuestions?.technical_questions || [])" :key="idx">
+              <div class="p-4 rounded-2xl bg-surface-950 border border-white/10 space-y-2">
+                <span class="text-xs font-bold text-brand-300" x-text="`Q${idx+1}: ${qa.question}`"></span>
+                <p class="text-xs text-slate-300" x-text="qa.answer_blueprint"></p>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Studio Tab 4: Comp & Intel -->
+      <div x-show="studioTab === 'intel'" class="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+        <div class="max-w-2xl mx-auto space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white">Company Intelligence & Grounded Compensation</h3>
+            <button @click="generateIntel()" class="px-3.5 py-1.5 rounded-xl bg-brand-600 text-white text-xs font-bold">⚡ Generate Dossier</button>
+          </div>
+          <div class="p-4 rounded-2xl bg-surface-950 border border-white/10 space-y-2">
+            <p class="text-xs text-slate-200" x-text="companyIntel?.business_overview || 'Click Generate Dossier to analyze company priorities.'"></p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div x-show="toast.show" x-cloak class="fixed bottom-6 right-6 z-50 glass border border-white/10 text-slate-100 text-xs px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2">
+    <i class="fa-solid fa-circle-check text-brand-400"></i>
+    <span x-text="toast.message"></span>
+  </div>
+
+<script>
+function careerQuestApp() {
+  return {
+    activeView: 'discovery',
+    studioTab: 'cv',
+    cvSubView: 'preview',
+    profile: {},
+    jobs: [],
+    digestItems: [],
+    selectedJob: null,
+    previewHtml: '',
+    selectedBulletIds: [],
+    compilingPdf: false,
+    atsResult: null,
+    inmailVariants: null,
+    mockQuestions: null,
+    companyIntel: null,
+    systemStatus: {},
+    modals: { studio: false, addJob: false },
+    scanState: { active: false },
+    toast: { show: false, message: '' },
+    digestFilters: { q: '', category: 'all', region: 'all', min_match: 0, sort_by: 'match_desc' },
+    pipelineColumns: [
+      { id: 'wishlist', title: 'Wishlist' },
+      { id: 'tailoring', title: 'Tailoring' },
+      { id: 'applied', title: 'Applied' },
+      { id: 'screen', title: 'Screen' },
+      { id: 'technical', title: 'Tech' },
+      { id: 'onsite', title: 'Onsite' },
+      { id: 'offer', title: 'Offer' }
+    ],
+
+    async init() {
+      await Promise.all([this.fetchProfile(), this.fetchJobs(), this.fetchDigest(), this.fetchSystemStatus()]);
+    },
+
+    async fetchProfile() {
+      try {
+        const res = await fetch('/api/v1/profile');
+        if (res.ok) this.profile = await res.json();
+      } catch (e) { console.error(e); }
+    },
+
+    async fetchJobs() {
+      try {
+        const res = await fetch('/api/v1/jobs');
+        if (res.ok) this.jobs = await res.json();
+      } catch (e) { console.error(e); }
+    },
+
+    jobsByStatus(status) {
+      return this.jobs.filter(j => j.status === status);
+    },
+
+    async fetchDigest() {
+      try {
+        const params = new URLSearchParams();
+        if (this.digestFilters.q) params.append('q', this.digestFilters.q);
+        if (this.digestFilters.category !== 'all') params.append('category', this.digestFilters.category);
+        if (this.digestFilters.region !== 'all') params.append('region', this.digestFilters.region);
+        if (this.digestFilters.min_match > 0) params.append('min_match', this.digestFilters.min_match);
+        if (this.digestFilters.sort_by) params.append('sort_by', this.digestFilters.sort_by);
+
+        const res = await fetch(`/api/v1/digest?${params.toString()}`);
+        if (res.ok) this.digestItems = await res.json();
+      } catch (e) { console.error(e); }
+    },
+
+    async fetchSystemStatus() {
+      try {
+        const res = await fetch('/api/v1/system/status');
+        if (res.ok) this.systemStatus = await res.json();
+      } catch (e) { console.error(e); }
+    },
+
+    startParallelScan() {
+      this.scanState.active = true;
+      this.showToast('Starting high-speed parallel portal scan...');
+      const es = new EventSource('/api/v1/digest/scan/stream');
+      es.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        if (data.step === 'complete') {
+          es.close();
+          this.scanState.active = false;
+          this.fetchDigest();
+          this.showToast('Discovery scan complete!');
+        }
+      };
+      es.onerror = () => { es.close(); this.scanState.active = false; this.fetchDigest(); };
+    },
+
+    async saveProfile() {
+      try {
+        const res = await fetch('/api/v1/profile', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.profile)
+        });
+        if (res.ok) {
+          this.profile = await res.json();
+          this.showToast('Master Profile saved successfully!');
+        }
+      } catch (e) { this.showToast('Error saving profile'); }
+    },
+
+    async uploadMasterResume(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('file', file);
+      this.showToast('Parsing uploaded resume with AI...');
+      try {
+        const res = await fetch('/api/v1/profile/upload', { method: 'POST', body: formData });
+        if (res.ok) {
+          await this.fetchProfile();
+          this.showToast('Master resume parsed & imported successfully!');
+        }
+      } catch (e) { this.showToast('Error parsing resume'); }
+    },
+
+    async addDigestToPipeline(item) {
+      try {
+        await fetch(`/api/v1/digest/${item.id}/add-to-pipeline`, { method: 'POST' });
+        await this.fetchJobs();
+        this.showToast(`Added ${item.company} to Wishlist!`);
+      } catch (e) { this.showToast('Error adding to wishlist'); }
+    },
+
+    async rateDigestInterest(item, rating) {
+      item.interest_rating = item.interest_rating === rating ? 0 : rating;
+      try {
+        await fetch(`/api/v1/digest/${item.id}/interest`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rating: item.interest_rating })
+        });
+        this.showToast('Feedback saved!');
+      } catch (e) { console.error(e); }
+    },
+
+    openJobStudio(job) {
+      this.selectedJob = { ...job };
+      this.selectedBulletIds = [];
+      (this.profile.experience || []).forEach(exp => {
+        (exp.bullets || []).forEach(b => {
+          if (b.default) this.selectedBulletIds.push(b.id);
+        });
+      });
+      this.modals.studio = true;
+      this.updatePreview();
+    },
+
+    closeJobStudio() {
+      this.modals.studio = false;
+      this.selectedJob = null;
+    },
+
+    toggleBullet(id) {
+      if (this.selectedBulletIds.includes(id)) {
+        this.selectedBulletIds = this.selectedBulletIds.filter(x => x !== id);
+      } else {
+        this.selectedBulletIds.push(id);
+      }
+      this.updatePreview();
+    },
+
+    async updatePreview() {
+      if (!this.selectedJob) return;
+      try {
+        const res = await fetch('/api/v1/cv/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            company: this.selectedJob.company,
+            title: this.selectedJob.title,
+            custom_summary: this.selectedJob.custom_summary,
+            selected_bullets: this.selectedBulletIds
+          })
+        });
+        this.previewHtml = await res.text();
+      } catch (e) { console.error(e); }
+    },
+
+    async compilePdf() {
+      if (!this.selectedJob) return;
+      this.compilingPdf = true;
+      try {
+        const res = await fetch('/api/v1/cv/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            job_id: this.selectedJob.id,
+            company: this.selectedJob.company,
+            title: this.selectedJob.title,
+            custom_summary: this.selectedJob.custom_summary,
+            selected_bullets: this.selectedBulletIds
+          })
+        });
+        if (res.ok) {
+          this.showToast('1-Page PDF & Markdown compiled and saved!');
+          await this.fetchJobs();
+        }
+      } catch (e) { this.showToast('Error compiling PDF'); }
+      finally { this.compilingPdf = false; }
+    },
+
+    async runAtsAudit() {
+      if (!this.selectedJob) return;
+      try {
+        const res = await fetch(`/api/v1/jobs/${this.selectedJob.id}/ats-audit`, { method: 'POST' });
+        if (res.ok) this.atsResult = await res.json();
+      } catch (e) { console.error(e); }
+    },
+
+    async fetchInmails() {
+      if (!this.selectedJob) return;
+      try {
+        const res = await fetch(`/api/v1/jobs/${this.selectedJob.id}/inmail`, { method: 'POST' });
+        if (res.ok) this.inmailVariants = await res.json();
+      } catch (e) { console.error(e); }
+    },
+
+    async generateMockPrep() {
+      if (!this.selectedJob) return;
+      this.showToast('Synthesizing 10 mock questions...');
+      try {
+        const res = await fetch(`/api/v1/jobs/${this.selectedJob.id}/mock-interview`, { method: 'POST' });
+        if (res.ok) this.mockQuestions = await res.json();
+      } catch (e) { console.error(e); }
+    },
+
+    async generateIntel() {
+      if (!this.selectedJob) return;
+      this.showToast('Generating company dossier...');
+      try {
+        const res = await fetch(`/api/v1/jobs/${this.selectedJob.id}/company-intel`, { method: 'POST' });
+        if (res.ok) this.companyIntel = await res.json();
+      } catch (e) { console.error(e); }
+    },
+
+    async freezeApplicationSnapshot() {
+      if (!this.selectedJob) return;
+      try {
+        await fetch(`/api/v1/jobs/${this.selectedJob.id}/snapshot`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            stage: 'applied',
+            custom_summary: this.selectedJob.custom_summary,
+            selected_bullets: this.selectedBulletIds
+          })
+        });
+        await this.fetchJobs();
+        this.showToast('Application frozen in Vault & marked APPLIED!');
+      } catch (e) { this.showToast('Error saving snapshot'); }
+    },
+
+    async copyJobMarkdown() {
+      if (!this.selectedJob) return;
+      try {
+        const res = await fetch(`/api/v1/jobs/${this.selectedJob.id}/cv.md`);
+        if (res.ok) {
+          const text = await res.text();
+          this.copyText(text);
+          this.showToast('Markdown resume copied to clipboard!');
+        }
+      } catch (e) { this.showToast('Error copying markdown'); }
+    },
+
+    copyText(text) {
+      if (!text) return;
+      navigator.clipboard.writeText(text);
+      this.showToast('Copied to clipboard!');
+    },
+
+    showToast(msg) {
+      this.toast.message = msg;
+      this.toast.show = true;
+      setTimeout(() => { this.toast.show = false; }, 3500);
+    }
+  }
+}
+</script>
+</body>
+</html>
