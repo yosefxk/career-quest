@@ -2,12 +2,18 @@ import json
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from app.core.database import get_db
-from app.models.profile import CandidateProfile, ProfileUpdateRequest
-from app.engines.job_analyzer import parse_uploaded_resume
+from app.models.profile import CandidateProfile, ProfileUpdateRequest, CareerPreferences
 
 router = APIRouter(prefix="/api/v1/profile", tags=["profile"])
 
 def row_to_profile(row) -> CandidateProfile:
+    pref_data = {}
+    if "preferences_json" in row.keys() and row["preferences_json"]:
+        try:
+            pref_data = json.loads(row["preferences_json"])
+        except Exception:
+            pref_data = {}
+            
     return CandidateProfile(
         id=row["id"],
         is_active=bool(row["is_active"]),
@@ -23,7 +29,8 @@ def row_to_profile(row) -> CandidateProfile:
         archetypes=json.loads(row["archetypes_json"] or "{}"),
         experience=json.loads(row["experience_json"] or "[]"),
         education=json.loads(row["education_json"] or "[]"),
-        skills=json.loads(row["skills_json"] or "{}")
+        skills=json.loads(row["skills_json"] or "{}"),
+        preferences=CareerPreferences(**pref_data) if pref_data else CareerPreferences()
     )
 
 @router.get("", response_model=CandidateProfile)
@@ -62,10 +69,11 @@ def update_active_profile(update: ProfileUpdateRequest):
     if update.github_url is not None: fields.append("github_url = ?"); values.append(update.github_url)
     if update.portfolio_url is not None: fields.append("portfolio_url = ?"); values.append(update.portfolio_url)
     if update.tagline is not None: fields.append("tagline = ?"); values.append(update.tagline)
-    if update.archetypes is not None: fields.append("archetypes_json = ?"); values.append(json.dumps({k: v.dict() for k, v in update.archetypes.items()}))
-    if update.experience is not None: fields.append("experience_json = ?"); values.append(json.dumps([e.dict() for e in update.experience]))
-    if update.education is not None: fields.append("education_json = ?"); values.append(json.dumps([e.dict() for e in update.education]))
+    if update.archetypes is not None: fields.append("archetypes_json = ?"); values.append(json.dumps({k: v.model_dump() for k, v in update.archetypes.items()}))
+    if update.experience is not None: fields.append("experience_json = ?"); values.append(json.dumps([e.model_dump() for e in update.experience]))
+    if update.education is not None: fields.append("education_json = ?"); values.append(json.dumps([e.model_dump() for e in update.education]))
     if update.skills is not None: fields.append("skills_json = ?"); values.append(json.dumps(update.skills))
+    if update.preferences is not None: fields.append("preferences_json = ?"); values.append(json.dumps(update.preferences.model_dump()))
     
     if fields:
         fields.append("updated_at = ?")

@@ -33,10 +33,20 @@ def init_db():
         experience_json TEXT,          -- JSON of [ { company, role, location, dates, bullets: [ { id, text, category, tags, default } ] } ]
         education_json TEXT,           -- JSON of [ { institution, degree, honors, gpa, dates, details } ]
         skills_json TEXT,              -- JSON of { category_name: [skill1, skill2] }
+        preferences_json TEXT,         -- JSON of { target_roles, target_locations, target_seniority, include_linkedin }
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
     )
     """)
+
+    # Safe migration for existing databases
+    cursor.execute("PRAGMA table_info(candidate_profiles)")
+    cols = [r[1] for r in cursor.fetchall()]
+    if "preferences_json" not in cols:
+        try:
+            cursor.execute("ALTER TABLE candidate_profiles ADD COLUMN preferences_json TEXT")
+        except Exception:
+            pass
 
     # 2. Pipeline Applications (Kanban)
     cursor.execute("""

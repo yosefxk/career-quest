@@ -28,6 +28,14 @@ class ArchetypeProfile(BaseModel):
     summary: str
     active_tags: List[str] = []
 
+class CareerPreferences(BaseModel):
+    target_roles: List[str] = ["Software Engineer", "Technical Program Manager", "Data Engineer"]
+    target_locations: List[str] = ["Israel", "United States", "Remote"]
+    target_seniority: List[str] = ["Mid-Level", "Senior", "Lead", "Staff"]
+    include_linkedin: bool = True
+    remote_only: bool = False
+    min_salary_usd: Optional[int] = 0
+
 class CandidateProfile(BaseModel):
     id: Optional[int] = None
     is_active: bool = True
@@ -44,6 +52,7 @@ class CandidateProfile(BaseModel):
     experience: List[ExperienceItem] = []
     education: List[EducationItem] = []
     skills: Dict[str, List[str]] = {}
+    preferences: CareerPreferences = CareerPreferences()
 
 class ProfileUpdateRequest(BaseModel):
     full_name: Optional[str] = None
@@ -59,3 +68,4 @@ class ProfileUpdateRequest(BaseModel):
     experience: Optional[List[ExperienceItem]] = None
     education: Optional[List[EducationItem]] = None
     skills: Optional[Dict[str, List[str]]] = None
+    preferences: Optional[CareerPreferences] = None

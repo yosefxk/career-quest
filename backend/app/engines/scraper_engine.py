@@ -6,6 +6,7 @@ import httpx
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Generator, Dict, Any, List, Optional
+from bs4 import BeautifulSoup
 from app.core.config import settings
 from app.core.llm_gateway import llm
 from app.core.database import get_db
@@ -54,6 +55,55 @@ UNIVERSAL_TARGET_KEYWORDS = [
     # Security, Quality & Operations
     "security engineer", "cybersecurity", "appsec", "infosec", "qa engineer", "test engineer", "automation engineer"
 ]
+
+def fetch_linkedin_public_jobs(role_keyword: str, location_keyword: str, limit: int = 15) -> List[Dict[str, Any]]:
+    """Fetches public, unauthenticated job cards from LinkedIn's guest jobs endpoint."""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9"
+    }
+    encoded_role = httpx.URL("", params={"k": role_keyword}).query.decode()[2:]
+    encoded_loc = httpx.URL("", params={"l": location_keyword}).query.decode()[2:]
+    url = f"https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search?keywords={encoded_role}&location={encoded_loc}&start=0"
+    
+    found = []
+    now = datetime.now(timezone.utc)
+    try:
+        with httpx.Client(headers=headers, timeout=8.0, follow_redirects=True) as client:
+            resp = client.get(url)
+            if resp.status_code == 200:
+                soup = BeautifulSoup(resp.text, 'html.parser')
+                cards = soup.find_all('li')
+                for c in cards[:limit]:
+                    title_elem = c.find('h3', class_='base-search-card__title')
+                    comp_elem = c.find('h4', class_='base-search-card__subtitle')
+                    loc_elem = c.find('span', class_='job-search-card__location')
+                    link_elem = c.find('a', class_='base-card__full-link') or c.find('a', class_='base-search-card--link')
+                    
+                    title = title_elem.get_text(strip=True) if title_elem else ""
+                    comp = comp_elem.get_text(strip=True) if comp_elem else "Tech Organization"
+                    loc = loc_elem.get_text(strip=True) if loc_elem else location_keyword
+                    link = link_elem['href'].split('?')[0] if link_elem and 'href' in link_elem.attrs else f"https://www.linkedin.com/jobs/search?keywords={encoded_role}"
+                    
+                    if title:
+                        found.append({
+                            "company": comp,
+                            "title": title,
+                            "location": loc,
+                            "region": location_keyword,
+                            "category": "Tech & Engineering",
+                            "url": link,
+                            "source": f"LinkedIn ({location_keyword})",
+                            "role_family": "Engineering",
+                            "yoe_min": 2,
+                            "yoe_max": 8,
+                            "yoe_display": "2–8 YOE",
+                            "snippet": f"Active position for {title} at {comp} ({loc}).",
+                            "posted_date": now.strftime("%Y-%m-%d")
+                        })
+    except Exception as e:
+        print(f"Error scraping LinkedIn ({role_keyword} in {location_keyword}): {e}")
+    return found
 
 def get_learned_preferences(conn: sqlite3.Connection) -> Dict[str, Any]:
     cursor = conn.cursor()
@@ -125,16 +175,50 @@ Output strictly JSON:
         })
     return output
 
-def stream_opportunity_scan() -> Generator[Dict[str, Any], None, None]:
+def stream_opportunity_scan(
+    target_roles: Optional[List[str]] = None,
+    target_locations: Optional[List[str]] = None,
+    include_linkedin: bool = True
+) -> Generator[Dict[str, Any], None, None]:
+    
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    # Load candidate profile & preferences from DB
+    cursor.execute("SELECT tagline, archetypes_json, skills_json, preferences_json FROM candidate_profiles WHERE is_active = 1 LIMIT 1")
+    cand_row = cursor.fetchone()
+    
+    cand_prefs = {}
+    if cand_row and "preferences_json" in cand_row.keys() and cand_row["preferences_json"]:
+        try:
+            cand_prefs = json.loads(cand_row["preferences_json"])
+        except Exception:
+            cand_prefs = {}
+            
+    roles_filter = target_roles or cand_prefs.get("target_roles", ["Software Engineer", "Technical Program Manager", "Data Engineer"])
+    locations_filter = target_locations or cand_prefs.get("target_locations", ["Israel", "United States", "Remote"])
+    use_linkedin = include_linkedin if include_linkedin is not None else cand_prefs.get("include_linkedin", True)
+    
+    # Build active target keywords combining universal list with user's target roles
+    active_search_keywords = list(set([r.lower() for r in roles_filter] + UNIVERSAL_TARGET_KEYWORDS[:15]))
+    
+    linkedin_tasks = []
+    if use_linkedin:
+        for r in roles_filter[:3]:
+            for loc in locations_filter[:3]:
+                linkedin_tasks.append({"role": r, "location": loc})
+
+    total_tasks = len(TARGET_BOARDS) + len(linkedin_tasks)
+
     yield {
         "step": "init",
         "progress": 5,
         "boards_done": 0,
-        "total_boards": len(TARGET_BOARDS),
+        "total_boards": total_tasks,
         "roles_found": 0,
         "evaluated_count": 0,
         "added_count": 0,
-        "message": f"Starting high-speed parallel scan across {len(TARGET_BOARDS)} top tech career portals..."
+        "message": f"Starting parallel scan across {len(TARGET_BOARDS)} company boards & LinkedIn ({len(linkedin_tasks)} searches for {', '.join(locations_filter[:2])})..."
     }
     
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
@@ -157,7 +241,7 @@ def stream_opportunity_scan() -> Generator[Dict[str, Any], None, None]:
                         for j in data.get("jobs", []):
                             title = j.get("title", "")
                             title_lower = title.lower()
-                            if any(k in title_lower for k in UNIVERSAL_TARGET_KEYWORDS):
+                            if any(k in title_lower for k in active_search_keywords):
                                 loc_name = j.get("locationName", "Global / Remote") or "Global / Remote"
                                 job_url = j.get("jobUrl") or f"https://jobs.ashbyhq.com/{board_name}/{j.get('id')}"
                                 found.append({
@@ -182,7 +266,7 @@ def stream_opportunity_scan() -> Generator[Dict[str, Any], None, None]:
                         for j in data.get("jobs", []):
                             title = j.get("title", "")
                             title_lower = title.lower()
-                            if any(k in title_lower for k in UNIVERSAL_TARGET_KEYWORDS):
+                            if any(k in title_lower for k in active_search_keywords):
                                 loc_name = j.get("location", {}).get("name", "Global / Remote") or "Global / Remote"
                                 job_url = j.get("absolute_url") or f"https://job-boards.greenhouse.io/{board_name}/jobs/{j.get('id')}"
                                 found.append({
@@ -205,36 +289,46 @@ def stream_opportunity_scan() -> Generator[Dict[str, Any], None, None]:
         return company_name, found
 
     with ThreadPoolExecutor(max_workers=10) as executor:
-        futures = {executor.submit(fetch_single_board, b): b for b in TARGET_BOARDS}
-        for future in as_completed(futures):
+        # Submit board queries
+        board_futures = {executor.submit(fetch_single_board, b): b["company"] for b in TARGET_BOARDS}
+        # Submit LinkedIn queries
+        linkedin_futures = {executor.submit(fetch_linkedin_public_jobs, task["role"], task["location"]): f"LinkedIn: {task['role']} ({task['location']})" for task in linkedin_tasks}
+        
+        all_futures = {**board_futures, **linkedin_futures}
+        
+        for future in as_completed(all_futures):
             done_count += 1
-            comp_name, board_roles = future.result()
-            discovered.extend(board_roles)
-            progress_pct = int(5 + (done_count / len(TARGET_BOARDS)) * 45)
+            source_name = all_futures[future]
+            try:
+                res = future.result()
+                if isinstance(res, tuple):
+                    _, roles = res
+                else:
+                    roles = res
+                discovered.extend(roles)
+            except Exception as e:
+                roles = []
+                
+            progress_pct = int(5 + (done_count / total_tasks) * 45)
             
             yield {
                 "step": "board",
                 "progress": progress_pct,
                 "boards_done": done_count,
-                "total_boards": len(TARGET_BOARDS),
-                "company": comp_name,
+                "total_boards": total_tasks,
+                "company": source_name,
                 "roles_found": len(discovered),
                 "evaluated_count": 0,
                 "added_count": 0,
-                "message": f"Scanned {comp_name} — found {len(board_roles)} candidate positions"
+                "message": f"Scanned {source_name} — found {len(roles)} matching positions"
             }
 
-    conn = get_db()
-    cursor = conn.cursor()
     cursor.execute("SELECT job_key FROM discovery_digest")
     existing_keys = {row[0] for row in cursor.fetchall()}
     cursor.execute("SELECT company, title FROM jobs")
     pipeline_jobs = {(row[0].lower().strip(), row[1].lower().strip()) for row in cursor.fetchall()}
-    preferences = get_learned_preferences(conn)
+    learned_prefs = get_learned_preferences(conn)
     
-    # Load candidate profile for intelligent evaluation
-    cursor.execute("SELECT tagline, archetypes_json, skills_json FROM candidate_profiles WHERE is_active = 1 LIMIT 1")
-    cand_row = cursor.fetchone()
     cand_profile = {
         "tagline": cand_row["tagline"],
         "archetypes": json.loads(cand_row["archetypes_json"] or "{}"),
@@ -252,8 +346,8 @@ def stream_opportunity_scan() -> Generator[Dict[str, Any], None, None]:
     yield {
         "step": "dedup",
         "progress": 55,
-        "boards_done": len(TARGET_BOARDS),
-        "total_boards": len(TARGET_BOARDS),
+        "boards_done": total_tasks,
+        "total_boards": total_tasks,
         "roles_found": len(discovered),
         "unseen_count": len(unseen_jobs),
         "evaluated_count": 0,
@@ -261,27 +355,27 @@ def stream_opportunity_scan() -> Generator[Dict[str, Any], None, None]:
         "message": f"Deduplication complete: {len(unseen_jobs)} new unseen roles discovered."
     }
     
-    to_evaluate = unseen_jobs[:12]
+    to_evaluate = unseen_jobs[:14]
     evaluated = []
     if to_evaluate:
         yield {
             "step": "evaluating",
             "progress": 70,
-            "boards_done": len(TARGET_BOARDS),
-            "total_boards": len(TARGET_BOARDS),
+            "boards_done": total_tasks,
+            "total_boards": total_tasks,
             "roles_found": len(discovered),
             "evaluated_count": 0,
             "added_count": 0,
             "message": f"🧠 Running single-batch AI evaluation for top {len(to_evaluate)} high-fit roles..."
         }
         
-        evaluated = batch_evaluate_with_llm(to_evaluate, candidate_profile=cand_profile, preferences=preferences)
+        evaluated = batch_evaluate_with_llm(to_evaluate, candidate_profile=cand_profile, preferences=learned_prefs)
         
         yield {
             "step": "saving",
             "progress": 88,
-            "boards_done": len(TARGET_BOARDS),
-            "total_boards": len(TARGET_BOARDS),
+            "boards_done": total_tasks,
+            "total_boards": total_tasks,
             "roles_found": len(discovered),
             "evaluated_count": len(evaluated),
             "added_count": 0,
@@ -328,12 +422,12 @@ def stream_opportunity_scan() -> Generator[Dict[str, Any], None, None]:
     yield {
         "step": "complete",
         "progress": 100,
-        "boards_done": len(TARGET_BOARDS),
-        "total_boards": len(TARGET_BOARDS),
+        "boards_done": total_tasks,
+        "total_boards": total_tasks,
         "roles_found": len(discovered),
         "evaluated_count": len(evaluated),
         "added_count": len(evaluated),
         "total_active": active_count,
         "total_archived": archived_count,
-        "message": f"Scan Complete! Discovered {len(discovered)} raw roles and added {len(evaluated)} high-match opportunities."
+        "message": f"Scan Complete! Discovered {len(discovered)} raw roles (including LinkedIn) and added {len(evaluated)} evaluated opportunities."
     }

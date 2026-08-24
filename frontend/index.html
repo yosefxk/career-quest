@@ -61,7 +61,7 @@
           <h1 class="text-base sm:text-lg font-black tracking-tight text-white">CareerQuest</h1>
           <span class="px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/30 text-[10px] font-bold font-mono tracking-wider">v1.0</span>
         </div>
-        <p class="text-xs text-slate-400 hidden sm:block">AI Career Intelligence &bull; Multi-Platform Discovery &bull; ATS Studio</p>
+        <p class="text-xs text-slate-400 hidden sm:block">AI Career Operations &bull; Parallel Scraping &bull; ATS Studio</p>
       </div>
     </div>
 
@@ -85,12 +85,8 @@
       </button>
     </div>
 
-    <!-- Candidate Profile Pill & Action Button -->
+    <!-- Candidate Profile Pill & Quick Action -->
     <div class="flex items-center gap-2.5">
-      <button @click="openAddJobModal()" class="px-3 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-emerald-600 hover:from-brand-500 hover:to-emerald-500 text-slate-950 font-bold text-xs shadow-lg shadow-brand-600/30 flex items-center gap-1.5 active:scale-95 transition">
-        <i class="fa-solid fa-plus font-bold"></i>
-        <span class="hidden sm:inline">Add Job</span>
-      </button>
       <div class="hidden md:flex items-center gap-2 pl-2 border-l border-white/10">
         <div class="w-8 h-8 rounded-full bg-surface-800 border border-brand-500/30 flex items-center justify-center text-brand-400 font-bold text-xs" x-text="profile.full_name ? profile.full_name.charAt(0) : 'U'"></div>
         <div class="text-left">
@@ -107,29 +103,50 @@
     <!-- VIEW 1: JOB DISCOVERY -->
     <section x-show="activeView === 'discovery'" class="space-y-5">
       <!-- Search & Parallel Scan Banner -->
-      <div class="p-6 rounded-3xl bg-gradient-to-br from-surface-900 via-surface-900/90 to-surface-850 border border-white/10 shadow-2xl relative overflow-hidden">
-        <div class="max-w-3xl space-y-3 relative z-10">
+      <div class="p-6 rounded-3xl bg-gradient-to-br from-surface-900 via-surface-900/90 to-surface-850 border border-white/10 shadow-2xl relative overflow-hidden space-y-4">
+        <div class="flex items-center justify-between flex-wrap gap-3">
           <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-semibold">
-            <i class="fa-solid fa-bolt-lightning text-amber-300"></i> Parallel Scraping &bull; 17 Top Tech Portals (Greenhouse + Ashby)
+            <i class="fa-solid fa-bolt-lightning text-amber-300"></i> Multi-Board Parallel Scraping &bull; Greenhouse + Ashby + Live LinkedIn
           </div>
-          <h2 class="text-xl sm:text-2xl font-black text-white tracking-tight">Discover Verified High-Match Tech Opportunities</h2>
-          <p class="text-xs sm:text-sm text-slate-300">Scans live career portals, filters noise, calibrates compensation ranges, and matches directly against your Master Profile.</p>
-          
-          <div class="pt-2 flex items-center gap-3 flex-wrap">
-            <button @click="startParallelScan()" :disabled="scanState.active" class="px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs shadow-lg shadow-brand-500/25 flex items-center gap-2 active:scale-95 transition disabled:opacity-50">
-              <i class="fa-solid fa-radar text-sm" :class="scanState.active ? 'animate-spin' : ''"></i>
-              <span x-text="scanState.active ? 'Scanning Portals...' : 'Launch Parallel Discovery Scan'"></span>
-            </button>
-            <span class="text-xs text-slate-400" x-text="`${digestItems.length} verified positions discovered`"></span>
-          </div>
+          <button @click="activeView = 'profile'" class="text-xs text-brand-400 hover:text-brand-300 flex items-center gap-1 font-bold">
+            <i class="fa-solid fa-sliders"></i> Configure Target Countries & Roles
+          </button>
+        </div>
+
+        <div class="max-w-3xl space-y-2">
+          <h2 class="text-xl sm:text-2xl font-black text-white tracking-tight">Real-Time Multi-Platform Opportunity Discovery</h2>
+          <p class="text-xs sm:text-sm text-slate-300">Concurrently scans active career portals and public job search endpoints, calibrating compensation, seniority, and matching directly against your Master Profile.</p>
+        </div>
+
+        <!-- Target Criteria Live Chips -->
+        <div class="pt-2 flex items-center gap-2 flex-wrap text-xs">
+          <span class="text-slate-400 text-[11px] font-bold uppercase">Active Targets:</span>
+          <template x-for="loc in (profile.preferences?.target_locations || ['Israel', 'US', 'Remote'])" :key="loc">
+            <span class="px-2.5 py-1 rounded-lg bg-surface-950 border border-white/10 text-emerald-300 text-[11px] flex items-center gap-1">
+              <i class="fa-solid fa-location-dot text-rose-400 text-[10px]"></i> <span x-text="loc"></span>
+            </span>
+          </template>
+          <template x-for="role in (profile.preferences?.target_roles || ['Software Engineer', 'TPM'])" :key="role">
+            <span class="px-2.5 py-1 rounded-lg bg-surface-950 border border-white/10 text-sky-300 text-[11px] flex items-center gap-1">
+              <i class="fa-solid fa-briefcase text-blue-400 text-[10px]"></i> <span x-text="role"></span>
+            </span>
+          </template>
+        </div>
+        
+        <div class="pt-2 flex items-center gap-3 flex-wrap">
+          <button @click="startParallelScan()" :disabled="scanState.active" class="px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs shadow-lg shadow-brand-500/25 flex items-center gap-2 active:scale-95 transition disabled:opacity-50">
+            <i class="fa-solid fa-radar text-sm" :class="scanState.active ? 'animate-spin' : ''"></i>
+            <span x-text="scanState.active ? 'Scanning Portals & LinkedIn...' : 'Launch Parallel Discovery Scan'"></span>
+          </button>
+          <span class="text-xs text-slate-400" x-text="`${digestItems.length} verified opportunities in digest`"></span>
         </div>
       </div>
 
       <!-- Discovery Filter Bar -->
       <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 p-4 rounded-2xl bg-surface-900 border border-white/5 text-xs">
         <div>
-          <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Search Keywords</label>
-          <input type="text" x-model="digestFilters.q" @input.debounce.300ms="fetchDigest()" placeholder="Role, company, location..." class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+          <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Search Keyword</label>
+          <input type="text" x-model="digestFilters.q" @input.debounce.300ms="fetchDigest()" placeholder="Role, company, keyword..." class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
         </div>
         <div>
           <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Category</label>
@@ -144,11 +161,11 @@
           </select>
         </div>
         <div>
-          <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Region</label>
+          <label class="block text-[10px] uppercase font-bold text-slate-400 mb-1">Region / Location</label>
           <select x-model="digestFilters.region" @change="fetchDigest()" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
-            <option value="all">Global & Remote</option>
-            <option value="US">United States</option>
+            <option value="all">All Locations</option>
             <option value="Israel">Israel</option>
+            <option value="US">United States</option>
             <option value="Remote">100% Remote</option>
           </select>
         </div>
@@ -177,7 +194,7 @@
             <div class="space-y-2.5">
               <div class="flex items-start justify-between gap-2">
                 <div>
-                  <span class="px-2 py-0.5 rounded-md bg-surface-800 text-slate-300 text-[10px] font-bold uppercase tracking-wider" x-text="item.category"></span>
+                  <span class="px-2 py-0.5 rounded-md bg-surface-800 text-slate-300 text-[10px] font-bold uppercase tracking-wider" x-text="item.source || item.category"></span>
                   <h3 class="text-sm font-bold text-white group-hover:text-brand-400 transition mt-1 line-clamp-1" x-text="item.title"></h3>
                   <p class="text-xs text-slate-400 font-semibold" x-text="item.company"></p>
                 </div>
@@ -198,7 +215,7 @@
 
             <div class="pt-3 border-t border-white/5 flex items-center justify-between gap-2">
               <a :href="item.url" target="_blank" class="text-xs text-slate-400 hover:text-white flex items-center gap-1 font-semibold">
-                <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> Link
+                <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i> Open Link
               </a>
               <div class="flex items-center gap-2">
                 <button @click="rateDigestInterest(item, 1)" class="p-1.5 rounded-lg text-xs" :class="item.interest_rating === 1 ? 'bg-emerald-500 text-slate-950 font-bold' : 'bg-surface-950 text-slate-400 hover:text-emerald-400'">
@@ -255,13 +272,59 @@
       </div>
     </section>
 
-    <!-- VIEW 3: MASTER PROFILE & UPLOAD -->
+    <!-- VIEW 3: MASTER PROFILE & CAREER RADAR CONFIGURATION -->
     <section x-show="activeView === 'profile'" class="space-y-6 max-w-4xl mx-auto">
+      
+      <!-- Career Radar & Discovery Preferences Card -->
+      <div class="p-6 rounded-3xl bg-surface-900 border border-brand-500/20 shadow-2xl space-y-5">
+        <div class="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-white/5">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-satellite-dish text-brand-400"></i> Career Radar & Search Scope
+            </h2>
+            <p class="text-xs text-slate-400">Configure your target countries, career paths, and scan sources. Discovery scans execute based on these settings.</p>
+          </div>
+          <button @click="saveProfile()" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs shadow flex items-center gap-1.5 active:scale-95 transition">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>Save Preferences</span>
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+          <!-- Target Countries / Locations Input -->
+          <div class="space-y-2">
+            <label class="block font-bold text-slate-300 uppercase tracking-wider text-[10px]">Target Countries & Regions (comma-separated)</label>
+            <input type="text" x-model="locationsInput" @input="updateLocationsList()" placeholder="e.g. Israel, United States, Remote, United Kingdom" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+            <p class="text-[10px] text-slate-400">Controls Greenhouse, Ashby, and LinkedIn geographic filters.</p>
+          </div>
+
+          <!-- Target Career Paths / Roles Input -->
+          <div class="space-y-2">
+            <label class="block font-bold text-slate-300 uppercase tracking-wider text-[10px]">Target Roles & Career Paths (comma-separated)</label>
+            <input type="text" x-model="rolesInput" @input="updateRolesList()" placeholder="e.g. Software Engineer, Technical Program Manager, Data Engineer" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+            <p class="text-[10px] text-slate-400">Keywords evaluated across all portal listings and LinkedIn queries.</p>
+          </div>
+        </div>
+
+        <!-- Scan Sources Toggle -->
+        <div class="pt-2 border-t border-white/5 flex items-center gap-6 flex-wrap text-xs">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" x-model="profile.preferences.include_linkedin" class="rounded border-white/20 text-brand-500">
+            <span class="text-slate-300 font-semibold flex items-center gap-1"><i class="fa-brands fa-linkedin text-blue-400"></i> Live LinkedIn Public Search</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" x-model="profile.preferences.remote_only" class="rounded border-white/20 text-brand-500">
+            <span class="text-slate-300 font-semibold flex items-center gap-1"><i class="fa-solid fa-house-laptop text-emerald-400"></i> Remote-Only Positions</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Candidate Identity Card -->
       <div class="p-6 rounded-3xl bg-surface-900 border border-white/10 space-y-6">
         <div class="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-white/5">
           <div>
-            <h2 class="text-lg font-bold text-white">Candidate Master Profile</h2>
-            <p class="text-xs text-slate-400">Single Source of Truth for all tailored resumes, ATS formatting, and AI intelligence.</p>
+            <h2 class="text-base font-bold text-white">Candidate Master Profile</h2>
+            <p class="text-xs text-slate-400">Single Source of Truth for ATS resume tailoring, PDF generation, and AI outreach.</p>
           </div>
           <div class="flex items-center gap-2">
             <label class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow flex items-center gap-1.5 cursor-pointer active:scale-95 transition">
@@ -269,10 +332,6 @@
               <span>Upload Resume (PDF/YAML)</span>
               <input type="file" @change="uploadMasterResume($event)" class="hidden" accept=".pdf,.txt,.md,.yaml,.yml">
             </label>
-            <button @click="saveProfile()" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs shadow flex items-center gap-1.5 active:scale-95 transition">
-              <i class="fa-solid fa-floppy-disk"></i>
-              <span>Save Profile</span>
-            </button>
           </div>
         </div>
 
@@ -299,7 +358,7 @@
             <input type="text" x-model="profile.citizenship" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
           </div>
           <div>
-            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">LinkedIn URL</label>
+            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">LinkedIn Profile URL</label>
             <input type="text" x-model="profile.linkedin_url" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
           </div>
         </div>
@@ -343,7 +402,7 @@
 
   </main>
 
-  <!-- TAILOR STUDIO MODAL (Full 10 Feature Suite) -->
+  <!-- TAILOR STUDIO MODAL -->
   <div x-show="modals.studio" x-cloak class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4">
     <div class="glass border-t sm:border border-white/10 rounded-t-3xl sm:rounded-3xl max-w-5xl w-full max-h-[94vh] flex flex-col shadow-2xl overflow-hidden" @click.away="closeJobStudio()">
       
@@ -384,7 +443,7 @@
             <textarea x-model="selectedJob.custom_summary" @input.debounce.500ms="updatePreview()" rows="3" class="w-full bg-surface-950 border border-white/10 rounded-xl p-3 text-xs text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none"></textarea>
           </div>
 
-          <!-- Interactive Bullet Pool (Option C) -->
+          <!-- Interactive Bullet Pool Bank -->
           <div class="space-y-2 pt-1 border-t border-white/5">
             <div class="flex items-center justify-between">
               <span class="text-xs font-bold text-white flex items-center gap-1.5"><i class="fa-solid fa-list-check text-brand-400"></i> Bullet Pool Bank</span>
@@ -509,7 +568,16 @@ function careerQuestApp() {
     activeView: 'discovery',
     studioTab: 'cv',
     cvSubView: 'preview',
-    profile: {},
+    profile: {
+      preferences: {
+        target_roles: ["Software Engineer", "Technical Program Manager", "Data Engineer"],
+        target_locations: ["Israel", "United States", "Remote"],
+        include_linkedin: true,
+        remote_only: false
+      }
+    },
+    locationsInput: "Israel, United States, Remote",
+    rolesInput: "Software Engineer, Technical Program Manager, Data Engineer",
     jobs: [],
     digestItems: [],
     selectedJob: null,
@@ -521,7 +589,7 @@ function careerQuestApp() {
     mockQuestions: null,
     companyIntel: null,
     systemStatus: {},
-    modals: { studio: false, addJob: false },
+    modals: { studio: false },
     scanState: { active: false },
     toast: { show: false, message: '' },
     digestFilters: { q: '', category: 'all', region: 'all', min_match: 0, sort_by: 'match_desc' },
@@ -542,8 +610,24 @@ function careerQuestApp() {
     async fetchProfile() {
       try {
         const res = await fetch('/api/v1/profile');
-        if (res.ok) this.profile = await res.json();
+        if (res.ok) {
+          this.profile = await res.json();
+          if (this.profile.preferences) {
+            this.locationsInput = (this.profile.preferences.target_locations || []).join(', ');
+            this.rolesInput = (this.profile.preferences.target_roles || []).join(', ');
+          }
+        }
       } catch (e) { console.error(e); }
+    },
+
+    updateLocationsList() {
+      if (!this.profile.preferences) this.profile.preferences = {};
+      this.profile.preferences.target_locations = this.locationsInput.split(',').map(s => s.trim()).filter(Boolean);
+    },
+
+    updateRolesList() {
+      if (!this.profile.preferences) this.profile.preferences = {};
+      this.profile.preferences.target_roles = this.rolesInput.split(',').map(s => s.trim()).filter(Boolean);
     },
 
     async fetchJobs() {
@@ -580,8 +664,14 @@ function careerQuestApp() {
 
     startParallelScan() {
       this.scanState.active = true;
-      this.showToast('Starting high-speed parallel portal scan...');
-      const es = new EventSource('/api/v1/digest/scan/stream');
+      this.showToast('Launching parallel scan across career portals & LinkedIn...');
+      
+      const params = new URLSearchParams();
+      if (this.digestFilters.region && this.digestFilters.region !== 'all') {
+        params.append('location', this.digestFilters.region);
+      }
+      
+      const es = new EventSource(`/api/v1/digest/scan/stream?${params.toString()}`);
       es.onmessage = (e) => {
         const data = JSON.parse(e.data);
         if (data.step === 'complete') {
@@ -595,6 +685,8 @@ function careerQuestApp() {
     },
 
     async saveProfile() {
+      this.updateLocationsList();
+      this.updateRolesList();
       try {
         const res = await fetch('/api/v1/profile', {
           method: 'PUT',
@@ -603,7 +695,7 @@ function careerQuestApp() {
         });
         if (res.ok) {
           this.profile = await res.json();
-          this.showToast('Master Profile saved successfully!');
+          this.showToast('Master Profile & Search Preferences saved!');
         }
       } catch (e) { this.showToast('Error saving profile'); }
     },

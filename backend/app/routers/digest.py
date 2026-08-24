@@ -103,9 +103,15 @@ def get_digest(
     return items
 
 @router.get("/scan/stream")
-def scan_digest_stream():
+def scan_digest_stream(
+    location: Optional[str] = None,
+    role: Optional[str] = None,
+    include_linkedin: bool = True
+):
+    target_locations = [location] if location and location != "all" else None
+    target_roles = [role] if role and role != "all" else None
     def event_stream():
-        for event in stream_opportunity_scan():
+        for event in stream_opportunity_scan(target_roles=target_roles, target_locations=target_locations, include_linkedin=include_linkedin):
             yield f"data: {json.dumps(event)}\n\n"
     return StreamingResponse(
         event_stream(),
