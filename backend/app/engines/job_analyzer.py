@@ -185,11 +185,12 @@ def audit_ats_compliance(html_content: str, candidate_profile: Dict[str, Any], j
     score = 100
     
     # 1. Text Layer Extractability
-    if len(text_content.strip()) > 300:
-        checks.append({"name": "Text-Layer Extractability", "passed": True, "detail": f"Parsed {len(text_content.split())} words cleanly from HTML/PDF structure."})
+    word_count = len(text_content.split())
+    if word_count >= 40:
+        checks.append({"name": "Text-Layer Extractability", "passed": True, "detail": f"Parsed {word_count} words cleanly from HTML/PDF structure."})
     else:
-        score -= 25
-        checks.append({"name": "Text-Layer Extractability", "passed": False, "detail": "Insufficient extractable text layer detected."})
+        score -= 20
+        checks.append({"name": "Text-Layer Extractability", "passed": False, "detail": f"Low extractable word count ({word_count} words detected)."})
         
     # 2. Standard ATS Section Headers
     required_headers = ["EXPERIENCE", "EDUCATION", "SKILLS"]

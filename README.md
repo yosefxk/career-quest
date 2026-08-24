@@ -3,6 +3,7 @@
 # CareerQuest ⚡
 ### Enterprise-Grade AI Career Intelligence & ATS Resume Studio
 
+[![CI Pipeline](https://github.com/yosefxk/career-quest/actions/workflows/ci.yml/badge.svg)](https://github.com/yosefxk/career-quest/actions)
 [![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com)
 [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://www.docker.com/)
 [![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
@@ -16,10 +17,11 @@
 
 [Key Features](#-key-features) •
 [Architecture](#-architecture) •
-[Prerequisites](#-prerequisites) •
 [Quickstart](#-quickstart-guide) •
 [Portainer Deployment](#-portainer-stack-deployment) •
 [Configuration](#-configuration-reference) •
+[Testing](#-testing--quality-assurance) •
+[Architecture Decisions](#-architecture-decision-records-adrs) •
 [Tech Stack](#-technology-stack)
 
 </div>
@@ -256,6 +258,34 @@ CareerQuest is designed for single-click deployment within Portainer:
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | Custom OpenAI-compatible proxy or gateway endpoint. |
 | `ANTHROPIC_BASE_URL` | `https://api.anthropic.com/v1` | Custom Anthropic API endpoint. |
 | `GROQ_BASE_URL` | `https://api.groq.com/openai/v1` | Groq high-speed inference endpoint. |
+
+---
+
+## 🧪 Testing & Quality Assurance
+
+CareerQuest includes an automated unit and integration test suite built with `pytest` and `httpx`:
+
+```bash
+# Run test suite on host
+make test
+# OR via pytest directly
+pytest -v backend/tests
+
+# Run test suite inside running Docker container
+docker exec career-quest pytest -v /app/tests
+```
+
+Continuous integration runs automatically on every push and pull request via [GitHub Actions](.github/workflows/ci.yml) across Python 3.11 and 3.12.
+
+---
+
+## 📚 Architecture Decision Records (ADRs)
+
+Key architectural decisions, trade-offs, and design rationales are documented in the [`docs/adr/`](docs/adr/) directory:
+
+* [**ADR 0001**](docs/adr/0001-sqlite-wal-mode.md): SQLite with Write-Ahead Logging (WAL) for Self-Hosted Portability.
+* [**ADR 0002**](docs/adr/0002-headless-chromium-pdf-engine.md): Headless Chromium & CSS Paged Media for ATS Resume Compilation.
+* [**ADR 0003**](docs/adr/0003-pluggable-llm-gateway.md): Pluggable Multi-Provider LLM Gateway with Structured JSON Validation.
 
 ---
 

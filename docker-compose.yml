@@ -21,6 +21,7 @@ services:
     volumes:
       - ./data:/app/data
       - ./backend/app:/app/app
+      - ./backend/tests:/app/tests
       - ./frontend:/app/frontend
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]

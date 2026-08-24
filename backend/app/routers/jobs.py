@@ -98,7 +98,7 @@ def update_job(job_id: int, update: JobUpdate):
     
     fields = []
     values = []
-    for k, v in update.dict(exclude_unset=True).items():
+    for k, v in update.model_dump(exclude_unset=True).items():
         if k == "analysis_data":
             fields.append("analysis_data = ?")
             values.append(json.dumps(v) if v else None)
