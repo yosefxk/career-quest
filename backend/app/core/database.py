@@ -152,27 +152,22 @@ def seed_default_profile_if_empty(conn):
         now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         
         default_archetypes = {
-            "technical_pm": {
-                "title": "Technical Program Manager",
-                "summary": "Technical Program Manager with deep background bridging engineering architecture with cross-functional partner execution. Experienced in distributed data platforms, low-latency telemetry ingestion, and end-to-end delivery.",
-                "active_tags": ["Program Delivery", "Integration", "Platform"]
+            "primary": {
+                "title": "Senior Technology Professional",
+                "summary": "Experienced technology professional with a proven track record of architectural leadership, high-impact system delivery, and cross-functional team collaboration.",
+                "active_tags": ["Architecture", "Engineering", "Delivery"]
             },
-            "data_engineer": {
-                "title": "Data Infrastructure Engineer",
-                "summary": "Data Infrastructure Engineer specializing in large-scale ETL/ELT pipelines, distributed querying, and cloud infrastructure.",
-                "active_tags": ["Data Engineering", "Snowflake", "Pipelines"]
-            },
-            "general_lead": {
-                "title": "Engineering Lead",
-                "summary": "Engineering Lead with proven track record optimizing complex technical workflows and leading technical integrations.",
-                "active_tags": ["Leadership", "Architecture"]
+            "specialist": {
+                "title": "Technical Specialist",
+                "summary": "Specialist with deep domain expertise in designing, implementing, and scaling reliable software, cloud, and distributed architectures.",
+                "active_tags": ["System Design", "Optimization", "Scale"]
             }
         }
 
         default_skills = {
-            "Technical & Cloud": ["Python", "SQL", "Docker", "Linux", "AWS", "Snowflake", "dbt", "Git", "REST APIs"],
-            "Management & Delivery": ["Technical Program Management", "Cross-Functional R&D", "Partner Integrations", "Sprint Planning", "Risk Mitigation"],
-            "Systems & Tools": ["Distributed Workflows", "CI/CD", "Jira", "Confluence", "Data Cataloging", "Grafana"]
+            "Core Technologies": ["Software Architecture", "API Design", "Distributed Systems", "Cloud Platforms", "Data Engineering"],
+            "Leadership & Delivery": ["Technical Leadership", "Agile/Scrum Delivery", "Cross-Functional Collaboration", "System Design Reviews"],
+            "Infrastructure & Tools": ["Git", "Docker", "Linux", "CI/CD", "Observability & Monitoring", "Automated Testing"]
         }
 
         cursor.execute("""
@@ -182,15 +177,15 @@ def seed_default_profile_if_empty(conn):
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             1,
-            "Alex Mercer",
-            "alex.mercer@example.com",
+            "Alex Morgan",
+            "alex.morgan@example.com",
             "+1 (555) 019-2834",
-            "New York, NY / Remote",
-            "US Citizen",
-            "https://linkedin.com/in/alexmercer",
-            "https://github.com/alexmercer",
-            "https://alexmercer.dev",
-            "Senior Technical Program Manager & Data Systems Architect",
+            "Global / Remote",
+            "Authorized to work globally",
+            "https://linkedin.com/in/alexmorgan",
+            "https://github.com/alexmorgan",
+            "https://alexmorgan.dev",
+            "Senior Technology Leader & Software Architect",
             json.dumps(default_archetypes),
             json.dumps([]),
             json.dumps([]),

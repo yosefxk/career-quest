@@ -7,18 +7,25 @@ from typing import Dict, Any, Tuple, Optional, List
 from pypdf import PdfReader
 from app.core.llm_gateway import llm
 
-TECH_KEYWORDS = [
-    "python", "sql", "snowflake", "dbt", "docker", "linux", "bash", "aws", "gcp", "azure", "s3",
-    "kubernetes", "argo workflows", "spark", "kafka", "etl", "elt", "parquet", "mongodb", "elasticsearch",
-    "data pipeline", "data infrastructure", "telemetry", "adas", "autonomous vehicles", "cybersecurity",
-    "project manager", "tpm", "product manager", "agile", "scrum", "oem", "tier 1", "saas",
-    "ci/cd", "jenkins", "git", "rest api", "fastapi", "react", "typescript", "machine learning", "ai", "llm"
+UNIVERSAL_TECH_KEYWORDS = [
+    # Languages & Frameworks
+    "python", "javascript", "typescript", "react", "vue", "angular", "node.js", "golang", "java", "c++", "c#", "rust", "ruby", "php", "swift", "kotlin",
+    # Backend, APIs & Architecture
+    "rest api", "graphql", "grpc", "fastapi", "django", "spring boot", "microservices", "distributed systems", "system architecture", "api design",
+    # Data, Storage & AI/ML
+    "sql", "postgresql", "mysql", "mongodb", "redis", "elasticsearch", "snowflake", "dbt", "spark", "kafka", "etl", "elt", "data pipeline", "machine learning", "ai", "llm", "deep learning", "nlp", "computer vision", "analytics",
+    # Cloud, Infra, DevOps & SRE
+    "aws", "gcp", "azure", "docker", "kubernetes", "terraform", "linux", "bash", "ci/cd", "jenkins", "github actions", "sre", "serverless", "observability",
+    # Quality & Security
+    "automated testing", "pytest", "jest", "cypress", "cybersecurity", "appsec", "infosec", "soc2", "oauth", "security",
+    # Management & Delivery
+    "agile", "scrum", "kanban", "technical program management", "product management", "stakeholder management", "jira", "confluence"
 ]
 
 def clean_input_url(url: str) -> str:
     if not url: return ""
     cleaned = url.strip()
-    return re.sub(r':(8095|8096|8098|8085|8000|5000|3000)/?$', '', cleaned)
+    return re.sub(r':(8095|8096|8098|8099|8085|8000|5000|3000)/?$', '', cleaned)
 
 def extract_job_text_from_url(url: str) -> Tuple[str, str, str]:
     cleaned_url = clean_input_url(url)
@@ -77,7 +84,7 @@ Requirements:
 1. Extract Candidate Contact Information (full_name, email, phone, location, citizenship, linkedin_url, github_url, portfolio_url, tagline).
 2. Extract Work Experience: Each position must have company, role, location, dates, and an array of bullets. For each bullet, assign a unique id (e.g. comp1_b1), category, relevant tags, and set default to true.
 3. Extract Education: institution, degree, honors, gpa, dates.
-4. Extract Skills grouped into 3-4 clean categories (e.g. 'Technical & Cloud', 'Leadership & Methodologies', 'Tools & Frameworks').
+4. Extract Skills grouped into 3-4 clean categories (e.g. 'Core Competencies', 'Languages & Frameworks', 'Tools & Cloud', 'Leadership & Methodologies').
 5. Generate 2-3 tailored Archetypes (e.g., primary role family, secondary role family) with a 2-3 sentence executive summary.
 
 Output ONLY valid JSON matching this schema:
@@ -101,16 +108,16 @@ Output ONLY valid JSON matching this schema:
       "location": "Location",
       "dates": "2020 – Present",
       "bullets": [
-        {{ "id": "exp1_b1", "text": "Accomplished X as measured by Y doing Z.", "category": "Impact", "tags": ["Python", "Scale"], "default": true }}
+        {{ "id": "exp1_b1", "text": "Accomplished X as measured by Y doing Z.", "category": "Impact", "tags": ["Tag1", "Tag2"], "default": true }}
       ]
     }}
   ],
   "education": [
-    {{ "institution": "University Name", "degree": "B.Sc. / M.Sc.", "honors": "Honors / null", "gpa": "3.9 / null", "dates": "2016 – 2020" }}
+    {{ "institution": "University Name", "degree": "Degree Title", "honors": "Honors / null", "gpa": "GPA / null", "dates": "Dates" }}
   ],
   "skills": {{
-    "Technical Core": ["Skill 1", "Skill 2"],
-    "Leadership & Delivery": ["Skill 3", "Skill 4"]
+    "Core Competencies": ["Skill 1", "Skill 2"],
+    "Tools & Platforms": ["Tool 1", "Tool 2"]
   }}
 }}
 """
@@ -142,10 +149,10 @@ Analyze this position and output strictly JSON:
   "tailored_summary": "High-impact 2-3 sentence executive summary tailoring {cand_name}'s proven metrics to this exact role.",
   "top_keywords_to_include": ["Keyword1", "Keyword2", "Keyword3"],
   "leveling_and_comp": {{
-    "target_level": "e.g. Senior / Staff / Lead",
-    "market_comp_us": "$160k - $210k + Equity",
+    "target_level": "e.g. Senior / Staff / Lead / Principal",
+    "market_comp_us": "$160k - $220k + Equity",
     "market_comp_local": "Competitive market rate",
-    "negotiation_levers": ["Lever 1 with quantified scale", "Lever 2 with unique technical edge"]
+    "negotiation_levers": ["Quantified track record in role domain", "Cross-functional scope and complexity"]
   }},
   "recruiter_inmail": "A high-converting 60-word intro message to the hiring manager.",
   "star_interview_prep": [
@@ -201,17 +208,22 @@ def audit_ats_compliance(html_content: str, candidate_profile: Dict[str, Any], j
         score -= 20
         checks.append({"name": "Direct Contact Formatting", "passed": False, "detail": "Email address was not detected."})
 
-    # 4. Keyword Coverage
+    # 4. Dynamic Keyword Coverage (Candidate Skills + Universal Keywords)
+    target_keyword_pool = set(UNIVERSAL_TECH_KEYWORDS)
+    for skills_list in candidate_profile.get("skills", {}).values():
+        for s in skills_list:
+            target_keyword_pool.add(s.lower().strip())
+            
     matched_kws = []
     lower_text = text_content.lower()
-    for kw in TECH_KEYWORDS:
-        if kw in lower_text:
+    for kw in target_keyword_pool:
+        if len(kw) > 2 and kw in lower_text:
             matched_kws.append(kw.title())
             
     checks.append({
         "name": "ATS Core Keyword Density",
         "passed": len(matched_kws) >= 6,
-        "detail": f"Identified {len(matched_kws)} industry keywords in document body."
+        "detail": f"Identified {len(matched_kws)} relevant core competencies in document body."
     })
     if len(matched_kws) < 6:
         score -= 10
@@ -243,17 +255,17 @@ Job details snippet:
 
 Output strictly JSON:
 {{
-  "hiring_manager": "Direct, value-first message to the Engineering Director / Hiring Manager (3-4 sentences, highlighting direct ROI metrics).",
+  "hiring_manager": "Direct, value-first message to the Hiring Manager / Department Lead (3-4 sentences, highlighting relevant track record).",
   "recruiter_followup": "Crisp message to the Talent Acquisition Lead referencing application submitted (2-3 sentences).",
-  "peer_referral": "Casual, respectful message to a current Senior Engineer / Team Member asking for brief insight and potentially a referral (2-3 sentences)."
+  "peer_referral": "Casual, respectful message to a current team member asking for brief insight and potentially a referral (2-3 sentences)."
 }}
 """
     res = llm.generate_json(prompt, system_prompt="Output valid JSON only.")
     if not res:
         return {
-            "hiring_manager": f"Hi, I noticed the open {title} role at {company}. With my background in engineering scale, I would love to connect.",
+            "hiring_manager": f"Hi, I noticed the open {title} role at {company}. With my background in technology delivery, I would love to connect.",
             "recruiter_followup": f"Hi, I recently applied for the {title} position at {company} and would welcome a brief introductory chat.",
-            "peer_referral": f"Hi, I am exploring the {title} opening at {company} and would love to hear about the engineering team culture."
+            "peer_referral": f"Hi, I am exploring the {title} opening at {company} and would love to hear about the team culture."
         }
     return res
 
@@ -268,23 +280,23 @@ Output strictly JSON:
   "business_overview": "2-3 sentences on business model, market position, and growth trajectory.",
   "tech_stack": ["Tech1", "Tech2", "Tech3", "Tech4", "Tech5"],
   "strategic_priorities": ["Priority 1", "Priority 2"],
-  "culture_and_interview_style": "Brief overview of what engineering leadership values."
+  "culture_and_interview_style": "Brief overview of what leadership values."
 }}
 """
     res = llm.generate_json(prompt, system_prompt="Output valid JSON only.")
     if not res:
         return {
             "company": company,
-            "business_overview": f"{company} is scaling modern engineering infrastructure and platform products.",
-            "tech_stack": ["Python", "Cloud", "Distributed Systems", "Data Pipelines", "Docker"],
-            "strategic_priorities": ["Platform reliability", "Scaling throughput"],
-            "culture_and_interview_style": "Values ownership, clear technical metrics, and collaborative architecture."
+            "business_overview": f"{company} is scaling its products and modern technology operations.",
+            "tech_stack": ["Cloud Platforms", "Modern APIs", "Distributed Systems", "CI/CD & Automation", "Automated Testing"],
+            "strategic_priorities": ["Product innovation", "Operational scale"],
+            "culture_and_interview_style": "Values technical rigor, ownership, and collaborative delivery."
         }
     return res
 
 def generate_role_mock_interview(company: str, title: str, job_description: str, candidate_profile: Dict[str, Any]) -> Dict[str, Any]:
     prompt = f"""
-Generate 10 role-specific mock interview questions (5 Technical Architecture + 5 STAR Behavioral) for candidate {candidate_profile.get('full_name')} interviewing for {title} at {company}.
+Generate 10 role-specific mock interview questions (5 Technical Architecture/Core Skills + 5 STAR Behavioral) for candidate {candidate_profile.get('full_name')} interviewing for {title} at {company}.
 
 Candidate details: {candidate_profile.get('tagline')}
 Job snippet: {job_description[:2000]}
@@ -293,7 +305,7 @@ Output strictly JSON:
 {{
   "technical_questions": [
     {{
-      "question": "Deep technical/architectural scenario question",
+      "question": "Deep technical scenario question",
       "focus": "Key technical bottleneck or scale challenge",
       "answer_blueprint": "How the candidate should structure their technical answer"
     }}
@@ -313,17 +325,17 @@ Output strictly JSON:
         return {
             "technical_questions": [
                 {
-                    "question": f"How do you design scalable telemetry pipelines for {company} under strict latency SLAs?",
-                    "focus": "Throughput and latency optimization",
-                    "answer_blueprint": "Discuss asynchronous ingestion, message queuing, and caching layers."
+                    "question": f"How do you approach architecture, scalability, and technical trade-offs for the {title} role at {company}?",
+                    "focus": "System architecture and technical trade-offs",
+                    "answer_blueprint": f"Walk through modular architecture, failure isolation, and performance metrics relevant to {title}."
                 }
             ],
             "behavioral_questions": [
                 {
-                    "question": "Tell me about a technical bottleneck you diagnosed and resolved under pressure.",
-                    "situation_task": "High latency workflow bottleneck",
-                    "action": "Redesigned indexing and optimized API polling queries",
-                    "result": "Cut response times significantly"
+                    "question": "Tell me about a time you resolved a major blocker or complex challenge on a critical project.",
+                    "situation_task": "Critical deliverable under tight constraints",
+                    "action": "Conducted root-cause diagnosis, aligned stakeholders, and executed a structured solution",
+                    "result": "Delivered project goals on schedule with high quality"
                 }
             ]
         }

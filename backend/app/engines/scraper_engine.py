@@ -39,10 +39,20 @@ TARGET_BOARDS = [
     {"company": "Figma", "board": "figma", "category": "Enterprise SaaS", "platform": "greenhouse"}
 ]
 
-TARGET_KEYWORDS = [
-    "program manager", "tpm", "technical project", "data engineer", 
-    "data infrastructure", "data platform", "ai ops", "platform engineer",
-    "solutions architect", "integration", "operations lead", "infrastructure lead", "software engineer"
+UNIVERSAL_TARGET_KEYWORDS = [
+    # Core Software & Systems
+    "software engineer", "software developer", "frontend", "backend", "full stack", "fullstack", "mobile", "ios", "android",
+    "systems engineer", "embedded", "infrastructure", "platform engineer", "site reliability", "sre", "devops", "cloud engineer",
+    # Data, Analytics & AI
+    "data engineer", "data scientist", "machine learning", "ml engineer", "ai engineer", "data analyst",
+    "analytics engineer", "business intelligence", "mlops", "data infrastructure", "data platform",
+    # Technical Leadership & Architecture
+    "engineering manager", "technical lead", "tech lead", "principal engineer", "staff engineer",
+    "director of engineering", "solutions architect", "systems architect", "cloud architect", "enterprise architect",
+    # Program & Product Delivery
+    "product manager", "technical program manager", "tpm", "technical project manager", "project manager", "operations lead",
+    # Security, Quality & Operations
+    "security engineer", "cybersecurity", "appsec", "infosec", "qa engineer", "test engineer", "automation engineer"
 ]
 
 def get_learned_preferences(conn: sqlite3.Connection) -> Dict[str, Any]:
@@ -64,14 +74,20 @@ def get_learned_preferences(conn: sqlite3.Connection) -> Dict[str, Any]:
         "disliked_companies": list(disliked_companies)
     }
 
-def batch_evaluate_with_llm(roles: List[Dict[str, Any]], preferences: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+def batch_evaluate_with_llm(roles: List[Dict[str, Any]], candidate_profile: Optional[Dict[str, Any]] = None, preferences: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     if not roles:
         return []
         
+    cand_headline = candidate_profile.get("tagline", "Technology Professional") if candidate_profile else "Technology Professional"
+    cand_skills = candidate_profile.get("skills", {}) if candidate_profile else {}
+    cand_archetypes = candidate_profile.get("archetypes", {}) if candidate_profile else {}
+    
     prompt = f"""
-Evaluate these {len(roles)} discovered job opportunities for technical leadership, program management, and data systems.
+Evaluate these {len(roles)} discovered job opportunities for a candidate with headline: '{cand_headline}'.
 
-User Preferences: {json.dumps(preferences or {})}
+Candidate Core Competencies: {json.dumps(cand_skills)}
+Candidate Target Archetypes: {json.dumps(cand_archetypes)}
+User Learned Preferences: {json.dumps(preferences or {})}
 
 Roles:
 {json.dumps([{ 'id': idx, 'company': r['company'], 'title': r['title'], 'location': r['location'], 'snippet': r.get('snippet', '') } for idx, r in enumerate(roles)])}
@@ -85,7 +101,7 @@ Output strictly JSON:
       "salary_min": 175000,
       "salary_max": 225000,
       "salary_display": "$175k - $225k + RSUs",
-      "match_highlights": ["Highlight 1", "Highlight 2"]
+      "match_highlights": ["Highlight 1 tailored to candidate background", "Highlight 2"]
     }}
   ]
 }}
@@ -141,7 +157,7 @@ def stream_opportunity_scan() -> Generator[Dict[str, Any], None, None]:
                         for j in data.get("jobs", []):
                             title = j.get("title", "")
                             title_lower = title.lower()
-                            if any(k in title_lower for k in TARGET_KEYWORDS):
+                            if any(k in title_lower for k in UNIVERSAL_TARGET_KEYWORDS):
                                 loc_name = j.get("locationName", "Global / Remote") or "Global / Remote"
                                 job_url = j.get("jobUrl") or f"https://jobs.ashbyhq.com/{board_name}/{j.get('id')}"
                                 found.append({
@@ -166,7 +182,7 @@ def stream_opportunity_scan() -> Generator[Dict[str, Any], None, None]:
                         for j in data.get("jobs", []):
                             title = j.get("title", "")
                             title_lower = title.lower()
-                            if any(k in title_lower for k in TARGET_KEYWORDS):
+                            if any(k in title_lower for k in UNIVERSAL_TARGET_KEYWORDS):
                                 loc_name = j.get("location", {}).get("name", "Global / Remote") or "Global / Remote"
                                 job_url = j.get("absolute_url") or f"https://job-boards.greenhouse.io/{board_name}/jobs/{j.get('id')}"
                                 found.append({
@@ -216,6 +232,15 @@ def stream_opportunity_scan() -> Generator[Dict[str, Any], None, None]:
     pipeline_jobs = {(row[0].lower().strip(), row[1].lower().strip()) for row in cursor.fetchall()}
     preferences = get_learned_preferences(conn)
     
+    # Load candidate profile for intelligent evaluation
+    cursor.execute("SELECT tagline, archetypes_json, skills_json FROM candidate_profiles WHERE is_active = 1 LIMIT 1")
+    cand_row = cursor.fetchone()
+    cand_profile = {
+        "tagline": cand_row["tagline"],
+        "archetypes": json.loads(cand_row["archetypes_json"] or "{}"),
+        "skills": json.loads(cand_row["skills_json"] or "{}")
+    } if cand_row else None
+    
     unseen_jobs = []
     for j in discovered:
         key = hashlib.md5(f"{j['company']}_{j['title']}_{j['location']}".encode()).hexdigest()
@@ -250,7 +275,7 @@ def stream_opportunity_scan() -> Generator[Dict[str, Any], None, None]:
             "message": f"🧠 Running single-batch AI evaluation for top {len(to_evaluate)} high-fit roles..."
         }
         
-        evaluated = batch_evaluate_with_llm(to_evaluate, preferences=preferences)
+        evaluated = batch_evaluate_with_llm(to_evaluate, candidate_profile=cand_profile, preferences=preferences)
         
         yield {
             "step": "saving",
