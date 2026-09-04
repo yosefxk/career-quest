@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     # AI Provider Settings
     AI_PROVIDER: str = os.getenv("AI_PROVIDER", "gemini").lower()  # gemini, openai, anthropic, groq, ollama
     AI_API_KEY: str = os.getenv("AI_API_KEY", os.getenv("GEMINI_API_KEY", ""))
-    AI_MODEL: str = os.getenv("AI_MODEL", "gemini-3.6-flash")
+    AI_MODEL: str = os.getenv("AI_MODEL", "gemini-3.7-flash")
     
     # Custom endpoints for local/proxy providers
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")

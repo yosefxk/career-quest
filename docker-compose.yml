@@ -14,7 +14,7 @@ services:
       - BACKUP_DIR=${BACKUP_DIR:-/mnt/smb_backup/career_vault}
       - AI_PROVIDER=${AI_PROVIDER:-gemini}
       - AI_API_KEY=${AI_API_KEY}
-      - AI_MODEL=${AI_MODEL:-gemini-3.6-flash}
+      - AI_MODEL=${AI_MODEL:-gemini-3.7-flash}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
       - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-https://api.anthropic.com/v1}
@@ -24,6 +24,9 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ${DATA_PATH:-/home/yosef/projects/career-quest/data}:/app/data
+      - ./backend/app:/app/app
+      - ./backend/tests:/app/tests
+      - ./frontend:/app/frontend
       - /mnt/smb/server_backup:/mnt/smb_backup
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
