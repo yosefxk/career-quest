@@ -71,3 +71,41 @@ def test_directives_block_injection():
     assert "STRICT USER DIRECTIVES" in block
     assert "Quantify outcomes in USD." in block
     assert "Avoid buzzwords." in block
+
+def test_copilot_operational_actions(client):
+    # 1. Create a test job
+    job_res = client.post("/api/v1/jobs", json={
+        "company": "Stripe",
+        "title": "Staff Infrastructure Engineer",
+        "status": "wishlist"
+    })
+    assert job_res.status_code == 200
+    job_id = job_res.json()["id"]
+
+    # 2. Command the Coach to update status
+    chat_res = client.post("/api/v1/copilot/chat", json={
+        "message": f"Mark job #{job_id} as applied",
+        "focused_job_id": job_id
+    })
+    assert chat_res.status_code == 200
+    data = chat_res.json()
+    assert data.get("action_executed") is not None
+    assert data["action_executed"]["type"] == "job_updated"
+    assert data["action_executed"]["job_id"] == job_id
+
+    # 3. Verify in database
+    get_job = client.get(f"/api/v1/jobs")
+    matched = [j for j in get_job.json() if j["id"] == job_id]
+    assert len(matched) == 1
+    assert matched[0]["status"] == "applied"
+
+    # 4. Command the Coach to add a note
+    note_res = client.post("/api/v1/copilot/chat", json={
+        "message": f"Add note to Stripe: Recruiter replied, screening call next Tuesday",
+        "focused_job_id": job_id
+    })
+    assert note_res.status_code == 200
+    note_data = note_res.json()
+    assert note_data.get("action_executed") is not None
+    assert note_data["action_executed"]["type"] == "job_updated"
+

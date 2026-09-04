@@ -1351,6 +1351,18 @@ function careerQuestApp() {
             created_at: data.created_at
           });
 
+          if (data.action_executed) {
+            if (data.action_executed.toast) {
+              this.showToast(data.action_executed.toast);
+            }
+            if (this.fetchJobs) {
+              await this.fetchJobs();
+            }
+            if (data.action_executed.job_id) {
+              this.focusedJobId = data.action_executed.job_id;
+            }
+          }
+
           if (data.new_directive) {
             await this.fetchDirectives();
             this.showToast(`Learned new directive: "${data.new_directive.rule_text}"`);
