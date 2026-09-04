@@ -39,8 +39,9 @@ class CareerPreferences(BaseModel):
 class CandidateProfile(BaseModel):
     id: Optional[int] = None
     is_active: bool = True
-    full_name: str
-    email: str
+    is_onboarded: bool = False
+    full_name: str = ""
+    email: str = ""
     phone: Optional[str] = None
     location: Optional[str] = None
     citizenship: Optional[str] = None
@@ -55,6 +56,7 @@ class CandidateProfile(BaseModel):
     preferences: CareerPreferences = CareerPreferences()
 
 class ProfileUpdateRequest(BaseModel):
+    is_onboarded: Optional[bool] = None
     full_name: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None

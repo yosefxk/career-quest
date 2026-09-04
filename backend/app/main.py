@@ -69,14 +69,30 @@ frontend_dir = Path(__file__).resolve().parent.parent.parent / "frontend"
 if not frontend_dir.exists():
     frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 if frontend_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(frontend_dir)), name="static")
+
     @app.get("/", response_class=HTMLResponse)
+    @app.get("/discovery", response_class=HTMLResponse)
+    @app.get("/pipeline", response_class=HTMLResponse)
+    @app.get("/coach", response_class=HTMLResponse)
+    @app.get("/copilot", response_class=HTMLResponse)
+    @app.get("/profile", response_class=HTMLResponse)
+    @app.get("/settings", response_class=HTMLResponse)
+    @app.get("/onboarding", response_class=HTMLResponse)
     def serve_index():
         index_file = frontend_dir / "index.html"
         if index_file.exists():
             return FileResponse(str(index_file))
         return HTMLResponse("<h1>CareerQuest Backend Running</h1><p>Frontend index.html not found.</p>")
 
-    app.mount("/static", StaticFiles(directory=str(frontend_dir)), name="static")
+    @app.get("/{full_path:path}", response_class=HTMLResponse)
+    def catch_all_spa(full_path: str):
+        if full_path.startswith("api") or full_path.startswith("static") or full_path in ("docs", "redoc", "openapi.json"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        index_file = frontend_dir / "index.html"
+        if index_file.exists():
+            return FileResponse(str(index_file))
+        raise HTTPException(status_code=404, detail="Frontend index.html not found")
 
 if __name__ == "__main__":
     import uvicorn

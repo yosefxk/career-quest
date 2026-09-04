@@ -34,6 +34,7 @@ def init_db():
         education_json TEXT,           -- JSON of [ { institution, degree, honors, gpa, dates, details } ]
         skills_json TEXT,              -- JSON of { category_name: [skill1, skill2] }
         preferences_json TEXT,         -- JSON of { target_roles, target_locations, target_seniority, include_linkedin }
+        is_onboarded INTEGER DEFAULT 0, -- Whether user has completed initial onboarding
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
     )
@@ -45,6 +46,11 @@ def init_db():
     if "preferences_json" not in cols:
         try:
             cursor.execute("ALTER TABLE candidate_profiles ADD COLUMN preferences_json TEXT")
+        except Exception:
+            pass
+    if "is_onboarded" not in cols:
+        try:
+            cursor.execute("ALTER TABLE candidate_profiles ADD COLUMN is_onboarded INTEGER DEFAULT 0")
         except Exception:
             pass
 

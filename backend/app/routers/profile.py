@@ -20,11 +20,16 @@ def row_to_profile(row) -> CandidateProfile:
         except Exception:
             pref_data = {}
             
+    is_onboarded_val = False
+    if "is_onboarded" in row.keys():
+        is_onboarded_val = bool(row["is_onboarded"])
+            
     return CandidateProfile(
         id=row["id"],
         is_active=bool(row["is_active"]),
-        full_name=row["full_name"],
-        email=row["email"],
+        is_onboarded=is_onboarded_val,
+        full_name=row["full_name"] or "",
+        email=row["email"] or "",
         phone=row["phone"],
         location=row["location"],
         citizenship=row["citizenship"],
@@ -66,6 +71,7 @@ def update_active_profile(update: ProfileUpdateRequest):
     fields = []
     values = []
     
+    if update.is_onboarded is not None: fields.append("is_onboarded = ?"); values.append(1 if update.is_onboarded else 0)
     if update.full_name is not None: fields.append("full_name = ?"); values.append(update.full_name)
     if update.email is not None: fields.append("email = ?"); values.append(update.email)
     if update.phone is not None: fields.append("phone = ?"); values.append(update.phone)
@@ -222,6 +228,7 @@ def commit_profile_update(req: CommitProfileRequest):
     
     cursor.execute("""
     UPDATE candidate_profiles SET
+        is_onboarded = 1,
         full_name = ?,
         email = ?,
         phone = ?,
@@ -262,6 +269,42 @@ def commit_profile_update(req: CommitProfileRequest):
         "backup_created": backup_file,
         "profile": row_to_profile(row)
     }
+
+@router.post("/reset", response_model=CandidateProfile)
+def reset_active_profile():
+    """
+    Resets the candidate profile to a clean, unconfigured state.
+    Creates an automatic backup snapshot first to protect historical data.
+    """
+    backup_file = backup_profile_to_file()
+    conn = get_db()
+    cursor = conn.cursor()
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute("""
+    UPDATE candidate_profiles SET
+        is_onboarded = 0,
+        full_name = '',
+        email = '',
+        phone = '',
+        location = '',
+        citizenship = '',
+        linkedin_url = '',
+        github_url = '',
+        portfolio_url = '',
+        tagline = '',
+        archetypes_json = '{}',
+        experience_json = '[]',
+        education_json = '[]',
+        skills_json = '{}',
+        preferences_json = '{"target_roles": ["Software Engineer", "Technical Program Manager"], "target_locations": ["Israel", "United States", "Remote"], "target_seniority": ["Mid-Level", "Senior"], "include_linkedin": true, "remote_only": false, "min_salary_usd": 0}',
+        updated_at = ?
+    WHERE is_active = 1
+    """, (now_str,))
+    conn.commit()
+    cursor.execute("SELECT * FROM candidate_profiles WHERE is_active = 1 LIMIT 1")
+    row = cursor.fetchone()
+    conn.close()
+    return row_to_profile(row)
 
 @router.get("/backups")
 def get_profile_backups():

@@ -48,70 +48,152 @@
   </style>
 </head>
 
-<body class="bg-surface-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-brand-500 selection:text-slate-950 flex flex-col overflow-x-hidden" x-data="careerQuestApp()" x-init="init()">
+<body class="bg-surface-950 text-slate-100 h-screen font-sans antialiased selection:bg-brand-500 selection:text-slate-950 flex overflow-hidden" x-data="careerQuestApp()" x-init="init()">
 
-  <!-- TOP APP HEADER -->
-  <header class="sticky top-0 z-30 glass border-b border-white/10">
-    <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 py-3 flex items-center justify-between gap-3 sm:gap-4">
-      <!-- Left: Logo & App Title -->
-      <div class="flex items-center gap-3 shrink-0">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-brand-500/20 ring-1 ring-white/20">
-          <i class="fa-solid fa-compass text-slate-950 text-base font-black"></i>
+  <!-- MOBILE OVERLAY BACKDROP -->
+  <div x-show="mobileSidebarOpen" 
+       x-transition:enter="transition-opacity ease-linear duration-300"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition-opacity ease-linear duration-300"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       @click="mobileSidebarOpen = false" 
+       class="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 md:hidden" 
+       x-cloak></div>
+
+  <!-- SIDEBAR NAVIGATION MENU -->
+  <aside :class="mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
+         class="fixed md:static inset-y-0 left-0 z-50 w-64 lg:w-72 bg-surface-900 border-r border-white/10 flex flex-col transition-transform duration-300 ease-in-out shrink-0 select-none">
+    
+    <!-- Sidebar Header / Branding -->
+    <div class="p-5 border-b border-white/10 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-brand-500/25 ring-1 ring-white/20">
+          <i class="fa-solid fa-compass text-slate-950 text-lg font-black"></i>
         </div>
         <div>
-          <div class="flex items-center gap-2">
-            <h1 class="text-base sm:text-lg font-black tracking-tight text-white">CareerQuest</h1>
-            <span class="px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/30 text-[10px] font-bold font-mono tracking-wider">v1.0</span>
+          <div class="flex items-center gap-1.5">
+            <span class="text-base font-black tracking-tight text-white">CareerQuest</span>
+            <span class="px-1.5 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/30 text-[9px] font-bold font-mono">v1.0</span>
           </div>
-          <p class="text-xs text-slate-400 hidden xl:block">AI Career Operations &bull; Parallel Scraping &bull; ATS Studio</p>
+          <p class="text-[11px] text-slate-400">AI Career Operations</p>
         </div>
       </div>
+      <button @click="mobileSidebarOpen = false" class="md:hidden text-slate-400 hover:text-white p-1">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+    </div>
 
-      <!-- Center Navigation Tabs -->
-      <div class="flex items-center bg-surface-900/90 p-1 rounded-2xl border border-white/10 text-xs shrink-0 overflow-x-auto custom-scrollbar max-w-full">
-        <button @click="activeView = 'discovery'" :class="activeView === 'discovery' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-2.5 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap">
-          <i class="fa-solid fa-compass"></i>
-          <span class="hidden sm:inline">Discovery</span>
+    <!-- Navigation Menu Items -->
+    <nav class="flex-1 overflow-y-auto custom-scrollbar p-3.5 space-y-1.5 text-xs font-semibold">
+      
+      <!-- Discovery -->
+      <button @click="switchView('discovery')" 
+              :class="activeView === 'discovery' ? 'bg-brand-600 text-white font-bold shadow-lg shadow-brand-600/20' : 'text-slate-400 hover:text-white hover:bg-white/5'" 
+              class="w-full px-3.5 py-3 rounded-xl transition flex items-center gap-3 text-left">
+        <i class="fa-solid fa-compass text-base w-5 text-center"></i>
+        <span class="flex-1">Opportunity Discovery</span>
+      </button>
+
+      <!-- Pipeline -->
+      <button @click="switchView('pipeline')" 
+              :class="activeView === 'pipeline' ? 'bg-brand-600 text-white font-bold shadow-lg shadow-brand-600/20' : 'text-slate-400 hover:text-white hover:bg-white/5'" 
+              class="w-full px-3.5 py-3 rounded-xl transition flex items-center gap-3 text-left">
+        <i class="fa-solid fa-layer-group text-base w-5 text-center"></i>
+        <span class="flex-1">Application Pipeline</span>
+        <span x-show="jobs.length > 0" class="px-2 py-0.5 rounded-full bg-brand-500 text-slate-950 font-bold text-[10px]" x-text="jobs.length"></span>
+      </button>
+
+      <!-- Career Coach -->
+      <button @click="switchView('copilot')" 
+              :class="activeView === 'copilot' ? 'bg-brand-600 text-white font-bold shadow-lg shadow-brand-600/20' : 'text-slate-400 hover:text-white hover:bg-white/5'" 
+              class="w-full px-3.5 py-3 rounded-xl transition flex items-center gap-3 text-left">
+        <i class="fa-solid fa-user-tie text-base w-5 text-center text-emerald-300"></i>
+        <span class="flex-1">AI Career Coach</span>
+      </button>
+
+      <!-- Profile & Preferences -->
+      <button @click="switchView('profile')" 
+              :class="activeView === 'profile' ? 'bg-brand-600 text-white font-bold shadow-lg shadow-brand-600/20' : 'text-slate-400 hover:text-white hover:bg-white/5'" 
+              class="w-full px-3.5 py-3 rounded-xl transition flex items-center gap-3 text-left">
+        <i class="fa-solid fa-user-gear text-base w-5 text-center"></i>
+        <span class="flex-1">Profile & Preferences</span>
+      </button>
+
+      <!-- Settings -->
+      <button @click="switchView('settings')" 
+              :class="activeView === 'settings' ? 'bg-brand-600 text-white font-bold shadow-lg shadow-brand-600/20' : 'text-slate-400 hover:text-white hover:bg-white/5'" 
+              class="w-full px-3.5 py-3 rounded-xl transition flex items-center gap-3 text-left">
+        <i class="fa-solid fa-sliders text-base w-5 text-center"></i>
+        <span class="flex-1">System Settings</span>
+      </button>
+
+      <!-- Quick Actions Section -->
+      <div class="pt-4 mt-4 border-t border-white/10 space-y-2">
+        <span class="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-500">Quick Tools</span>
+        
+        <button @click="openMasterCvModal('ingest')" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-950 hover:bg-surface-850 border border-white/10 text-slate-300 hover:text-white transition flex items-center gap-2.5 text-left text-xs">
+          <i class="fa-solid fa-file-arrow-up text-brand-400 w-4 text-center"></i>
+          <span>Master CV Studio</span>
         </button>
-        <button @click="activeView = 'pipeline'" :class="activeView === 'pipeline' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-2.5 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5 relative whitespace-nowrap">
-          <i class="fa-solid fa-layer-group"></i>
-          <span class="hidden sm:inline">Pipeline</span>
-          <span x-show="jobs.length > 0" class="ml-1 px-1.5 py-0.2 rounded-full bg-brand-500 text-slate-950 font-bold text-[10px]" x-text="jobs.length"></span>
-        </button>
-        <button @click="activeView = 'copilot'" :class="activeView === 'copilot' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-2.5 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap">
-          <i class="fa-solid fa-user-tie text-emerald-300"></i>
-          <span class="hidden sm:inline">Coach</span>
-        </button>
-        <button @click="activeView = 'profile'" :class="activeView === 'profile' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-2.5 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap">
-          <i class="fa-solid fa-user-gear"></i>
-          <span class="hidden sm:inline">Profile</span>
-        </button>
-        <button @click="activeView = 'settings'" :class="activeView === 'settings' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-2.5 sm:px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap" title="Settings">
-          <i class="fa-solid fa-sliders"></i>
-          <span class="hidden md:inline">Settings</span>
+
+        <button @click="openOnboardingWizard()" class="w-full px-3.5 py-2.5 rounded-xl bg-surface-950 hover:bg-surface-850 border border-white/10 text-slate-300 hover:text-white transition flex items-center gap-2.5 text-left text-xs">
+          <i class="fa-solid fa-wand-magic-sparkles text-amber-400 w-4 text-center"></i>
+          <span>Onboarding Wizard</span>
         </button>
       </div>
 
-      <!-- Candidate Profile Pill & Backup Status -->
-      <div class="flex items-center gap-2.5 shrink-0">
-        <template x-if="systemStatus.backup_active">
-          <span class="hidden lg:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" title="Persistent backup storage active">
-            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1"></span> Backup
-          </span>
-        </template>
-        <div class="flex items-center gap-2 pl-2 border-l border-white/10">
-          <div class="w-8 h-8 rounded-full bg-surface-800 border border-brand-500/30 flex items-center justify-center text-brand-400 font-bold text-xs shrink-0" x-text="profile.full_name ? profile.full_name.charAt(0) : 'U'"></div>
-          <div class="text-left hidden md:block">
-            <span class="text-xs font-bold text-white block leading-tight truncate max-w-[110px]" x-text="profile.full_name || 'Candidate'"></span>
-            <span class="text-[10px] text-slate-400 block leading-tight truncate max-w-[110px]" x-text="systemStatus.ai_provider ? `${systemStatus.ai_provider.toUpperCase()}` : 'AI Ready'"></span>
+    </nav>
+
+    <!-- Sidebar Bottom: Candidate Profile Pill / Status -->
+    <div class="p-3.5 border-t border-white/10 bg-surface-950/60">
+      <div @click="switchView('profile')" class="p-2.5 rounded-2xl bg-surface-900/80 hover:bg-surface-850 border border-white/5 cursor-pointer transition flex items-center justify-between gap-3 group">
+        <div class="flex items-center gap-3 min-w-0">
+          <!-- Avatar Icon: letter only when onboarded and name given; else user silhouette -->
+          <template x-if="profile.is_onboarded && profile.full_name && profile.full_name.trim().length > 0">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-slate-950 font-black text-sm shrink-0 shadow shadow-brand-500/20" x-text="profile.full_name.trim().charAt(0).toUpperCase()"></div>
+          </template>
+          <template x-if="!profile.is_onboarded || !profile.full_name || profile.full_name.trim().length === 0">
+            <div class="w-9 h-9 rounded-xl bg-surface-800 border border-white/15 flex items-center justify-center text-slate-400 text-sm shrink-0">
+              <i class="fa-solid fa-user"></i>
+            </div>
+          </template>
+
+          <div class="min-w-0">
+            <span class="text-xs font-bold text-white truncate block" x-text="profile.full_name && profile.full_name.trim().length > 0 ? profile.full_name : 'Set Up Profile'"></span>
+            <span class="text-[10px] text-slate-400 truncate block" x-text="profile.is_onboarded ? (systemStatus.ai_provider ? `${systemStatus.ai_provider.toUpperCase()}` : 'AI Ready') : 'Tap to Onboard'"></span>
           </div>
         </div>
+        
+        <i class="fa-solid fa-chevron-right text-slate-500 group-hover:text-brand-400 text-xs transition shrink-0"></i>
       </div>
     </div>
-  </header>
 
-  <!-- MAIN VIEW CONTAINER -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+  </aside>
+
+  <!-- MAIN CONTENT WRAPPER -->
+  <div class="flex-1 flex flex-col h-screen min-w-0 overflow-hidden">
+    
+    <!-- Mobile Top Navigation Header -->
+    <header class="md:hidden glass border-b border-white/10 px-4 py-3 flex items-center justify-between gap-3 z-30 shrink-0">
+      <button @click="mobileSidebarOpen = true" class="w-9 h-9 rounded-xl bg-surface-900 border border-white/10 flex items-center justify-center text-slate-200 hover:text-white">
+        <i class="fa-solid fa-bars text-sm"></i>
+      </button>
+      <div class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-lg bg-brand-500 flex items-center justify-center text-slate-950 font-bold text-xs">
+          <i class="fa-solid fa-compass"></i>
+        </div>
+        <span class="font-black text-sm text-white">CareerQuest</span>
+      </div>
+      <button @click="switchView('profile')" class="w-8 h-8 rounded-full bg-surface-800 border border-white/10 flex items-center justify-center text-brand-400 font-bold text-xs">
+        <span x-text="profile.is_onboarded && profile.full_name ? profile.full_name.charAt(0).toUpperCase() : '?'"></span>
+      </button>
+    </header>
+
+    <!-- Scrollable Main View Area -->
+    <main class="flex-1 overflow-y-auto custom-scrollbar p-4 sm:p-6 lg:p-8">
+      <div class="max-w-7xl mx-auto space-y-6">
 
     <!-- VIEW 1: JOB DISCOVERY -->
     <section x-show="activeView === 'discovery'" class="space-y-5">
@@ -521,6 +603,93 @@
     <!-- VIEW 4: MASTER PROFILE & CAREER RADAR CONFIGURATION -->
     <section x-show="activeView === 'profile'" class="space-y-6 max-w-4xl mx-auto">
       
+      <!-- Profile Header & Global Actions -->
+      <div class="flex items-center justify-between flex-wrap gap-4 pb-4 border-b border-white/10">
+        <div>
+          <h2 class="text-xl font-black text-white flex items-center gap-2.5">
+            <i class="fa-solid fa-user-gear text-brand-400"></i> Profile & Career Preferences
+          </h2>
+          <p class="text-xs text-slate-400">Configure your personal identity, target radar parameters, and ATS tailoring sources.</p>
+        </div>
+        <div class="flex items-center gap-2.5 flex-wrap">
+          <button @click="openOnboardingWizard()" class="px-3.5 py-2 rounded-xl bg-surface-900 hover:bg-surface-850 border border-white/10 text-white font-semibold text-xs flex items-center gap-1.5 transition active:scale-95 shadow">
+            <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i>
+            <span>Onboarding Wizard</span>
+          </button>
+          <button @click="openResetConfirmModal()" class="px-3.5 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 font-semibold text-xs flex items-center gap-1.5 transition active:scale-95">
+            <i class="fa-solid fa-rotate-left"></i>
+            <span>Reset Profile</span>
+          </button>
+          <button @click="saveProfile()" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs shadow-lg shadow-brand-500/20 flex items-center gap-1.5 transition active:scale-95">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>Update Preferences</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Candidate Identity Card with Avatar Preview -->
+      <div class="p-6 rounded-3xl bg-surface-900 border border-white/10 space-y-6">
+        <div class="flex items-center justify-between flex-wrap gap-4 pb-4 border-b border-white/5">
+          <div class="flex items-center gap-4">
+            <!-- Candidate Avatar Preview -->
+            <template x-if="profile.is_onboarded && profile.full_name && profile.full_name.trim().length > 0">
+              <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-slate-950 font-black text-2xl shadow-lg shadow-brand-500/25 shrink-0" x-text="profile.full_name.trim().charAt(0).toUpperCase()"></div>
+            </template>
+            <template x-if="!profile.is_onboarded || !profile.full_name || profile.full_name.trim().length === 0">
+              <div class="w-14 h-14 rounded-2xl bg-surface-800 border border-white/15 flex items-center justify-center text-slate-400 text-xl shrink-0">
+                <i class="fa-solid fa-user"></i>
+              </div>
+            </template>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-base font-bold text-white" x-text="profile.full_name && profile.full_name.trim().length > 0 ? profile.full_name : 'New Candidate'"></h3>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold" :class="profile.is_onboarded ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'" x-text="profile.is_onboarded ? 'Active Candidate' : 'Not Onboarded'"></span>
+              </div>
+              <p class="text-xs text-slate-400" x-text="profile.tagline || 'Set up your identity and headline below'"></p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button @click="openMasterCvModal('ingest')" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-brand-600/30 flex items-center gap-1.5 cursor-pointer active:scale-95 transition">
+              <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i>
+              <span>Master CV Studio (Ingest / In-Depth)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Contact Registry Form -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+          <div>
+            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Full Name</label>
+            <input type="text" x-model="profile.full_name" placeholder="e.g. Alex Morgan or Yosef" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Email Address</label>
+            <input type="email" x-model="profile.email" placeholder="e.g. you@example.com" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Phone Number</label>
+            <input type="text" x-model="profile.phone" placeholder="e.g. +972 50 123 4567" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Location / Timezone</label>
+            <input type="text" x-model="profile.location" placeholder="e.g. Tel Aviv, Israel or Remote" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Citizenship / Work Auth</label>
+            <input type="text" x-model="profile.citizenship" placeholder="e.g. Israel / US Citizen" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">LinkedIn Profile URL</label>
+            <input type="text" x-model="profile.linkedin_url" placeholder="https://linkedin.com/in/..." class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Executive Headline / Tagline</label>
+          <input type="text" x-model="profile.tagline" placeholder="e.g. Staff Full-Stack Engineer & Distributed Systems Lead" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+        </div>
+      </div>
+
       <!-- Career Radar & Discovery Preferences Card -->
       <div class="p-6 rounded-3xl bg-surface-900 border border-brand-500/20 shadow-2xl space-y-5">
         <div class="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-white/5">
@@ -532,7 +701,7 @@
           </div>
           <button @click="saveProfile()" class="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs shadow flex items-center gap-1.5 active:scale-95 transition">
             <i class="fa-solid fa-floppy-disk"></i>
-            <span>Save Preferences</span>
+            <span>Update Preferences</span>
           </button>
         </div>
 
@@ -565,54 +734,24 @@
         </div>
       </div>
 
-      <!-- Candidate Identity Card -->
-      <div class="p-6 rounded-3xl bg-surface-900 border border-white/10 space-y-6">
-        <div class="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-white/5">
+      <!-- Reset Profile Danger Zone -->
+      <div class="p-6 rounded-3xl bg-surface-900 border border-rose-500/20 space-y-3">
+        <div class="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h2 class="text-base font-bold text-white">Candidate Master Profile</h2>
-            <p class="text-xs text-slate-400">Single Source of Truth for ATS resume tailoring, PDF generation, and AI outreach.</p>
+            <h3 class="text-sm font-bold text-rose-400 flex items-center gap-2">
+              <i class="fa-solid fa-triangle-exclamation"></i> Reset Candidate Profile
+            </h3>
+            <p class="text-xs text-slate-400 mt-1">
+              Clears candidate personal identity, experience, and contact details to return CareerQuest to a clean slate. An automatic backup snapshot is safely created first in <code>data/backups/</code>.
+            </p>
           </div>
-          <div class="flex items-center gap-2">
-            <button @click="openMasterCvModal()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-brand-600/30 flex items-center gap-1.5 cursor-pointer active:scale-95 transition">
-              <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i>
-              <span>Master CV Studio (Ingest / In-Depth)</span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Contact Registry Form -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 text-xs">
-          <div>
-            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Full Name</label>
-            <input type="text" x-model="profile.full_name" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
-          </div>
-          <div>
-            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Email Address</label>
-            <input type="email" x-model="profile.email" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
-          </div>
-          <div>
-            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Phone Number</label>
-            <input type="text" x-model="profile.phone" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
-          </div>
-          <div>
-            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Location / Timezone</label>
-            <input type="text" x-model="profile.location" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
-          </div>
-          <div>
-            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Citizenship / Work Auth</label>
-            <input type="text" x-model="profile.citizenship" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
-          </div>
-          <div>
-            <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">LinkedIn Profile URL</label>
-            <input type="text" x-model="profile.linkedin_url" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
-          </div>
-        </div>
-
-        <div>
-          <label class="block font-bold text-slate-400 uppercase tracking-wider text-[10px] mb-1">Executive Headline / Tagline</label>
-          <input type="text" x-model="profile.tagline" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+          <button @click="openResetConfirmModal()" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/25 flex items-center gap-2 transition active:scale-95">
+            <i class="fa-solid fa-trash-can"></i>
+            <span>Reset Profile</span>
+          </button>
         </div>
       </div>
+
     </section>
 
     <!-- VIEW 5: SYSTEM & PORTAINER SETTINGS -->
@@ -645,7 +784,9 @@
       </div>
     </section>
 
-  </main>
+      </div>
+    </main>
+  </div>
 
   <!-- TAILOR STUDIO MODAL -->
   <div x-show="modals.studio" x-cloak class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4">
@@ -1171,13 +1312,183 @@
     <span x-text="toast.message"></span>
   </div>
 
+  <!-- ONBOARDING WIZARD MODAL -->
+  <div x-show="modals.onboarding" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+    <div class="glass border border-white/15 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+      
+      <!-- Wizard Header -->
+      <div class="p-6 bg-gradient-to-r from-surface-900 via-surface-900/95 to-surface-850 border-b border-white/10 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-brand-500/25">
+            <i class="fa-solid fa-wand-magic-sparkles text-slate-950 text-lg"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Welcome to CareerQuest</h3>
+            <p class="text-xs text-slate-400">Set up your candidate identity, career radar & ATS targets</p>
+          </div>
+        </div>
+        <button @click="closeOnboardingWizard()" class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-white/5 transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Step Indicator -->
+      <div class="px-6 py-3 bg-surface-950/60 border-b border-white/5 flex items-center justify-between text-xs">
+        <div class="flex items-center gap-2" :class="onboardingStep === 1 ? 'text-brand-400 font-bold' : (onboardingStep > 1 ? 'text-emerald-400 font-semibold' : 'text-slate-500')">
+          <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px]" :class="onboardingStep === 1 ? 'bg-brand-500 text-slate-950 font-bold' : (onboardingStep > 1 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-surface-800 text-slate-400')">1</span>
+          <span>1. Identity</span>
+        </div>
+        <div class="h-0.5 flex-1 mx-3 bg-white/10" :class="onboardingStep > 1 ? 'bg-emerald-500/40' : ''"></div>
+        <div class="flex items-center gap-2" :class="onboardingStep === 2 ? 'text-brand-400 font-bold' : (onboardingStep > 2 ? 'text-emerald-400 font-semibold' : 'text-slate-500')">
+          <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px]" :class="onboardingStep === 2 ? 'bg-brand-500 text-slate-950 font-bold' : (onboardingStep > 2 ? 'bg-emerald-500/20 text-emerald-300' : 'bg-surface-800 text-slate-400')">2</span>
+          <span>2. Career Radar</span>
+        </div>
+        <div class="h-0.5 flex-1 mx-3 bg-white/10" :class="onboardingStep > 2 ? 'bg-emerald-500/40' : ''"></div>
+        <div class="flex items-center gap-2" :class="onboardingStep === 3 ? 'text-brand-400 font-bold' : 'text-slate-500'">
+          <span class="w-5 h-5 rounded-full flex items-center justify-center text-[10px]" :class="onboardingStep === 3 ? 'bg-brand-500 text-slate-950 font-bold' : 'bg-surface-800 text-slate-400'">3</span>
+          <span>3. Resume (Optional)</span>
+        </div>
+      </div>
+
+      <!-- Step Content Area -->
+      <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-4">
+        
+        <!-- STEP 1: IDENTITY -->
+        <div x-show="onboardingStep === 1" class="space-y-4">
+          <p class="text-xs text-slate-300 leading-relaxed">Tell us who you are so CareerQuest can personalize AI outreach, interview coaching, and ATS resumes under your name.</p>
+          
+          <div class="space-y-3 text-xs">
+            <div>
+              <label class="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Your Full Name <span class="text-rose-400">*</span></label>
+              <input type="text" x-model="onboardingForm.full_name" placeholder="e.g. Alex Morgan or Yosef" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Email Address</label>
+                <input type="email" x-model="onboardingForm.email" placeholder="e.g. you@example.com" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+              </div>
+              <div>
+                <label class="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Current Location / Timezone</label>
+                <input type="text" x-model="onboardingForm.location" placeholder="e.g. Tel Aviv, Israel or Remote" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Professional Tagline / Headline</label>
+              <input type="text" x-model="onboardingForm.tagline" placeholder="e.g. Staff Full-Stack Engineer & Cloud Systems Architect" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 2: CAREER RADAR & TARGETS -->
+        <div x-show="onboardingStep === 2" class="space-y-4">
+          <p class="text-xs text-slate-300 leading-relaxed">Configure your search scope. Discovery scans across Greenhouse, Ashby, and LinkedIn will filter and match against these parameters.</p>
+
+          <div class="space-y-3 text-xs">
+            <div>
+              <label class="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Target Roles & Career Paths (comma-separated)</label>
+              <input type="text" x-model="onboardingForm.roles" placeholder="e.g. Software Engineer, Tech Lead, Engineering Manager" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+            </div>
+
+            <div>
+              <label class="block font-bold text-slate-300 uppercase tracking-wider text-[10px] mb-1">Target Countries & Locations (comma-separated)</label>
+              <input type="text" x-model="onboardingForm.locations" placeholder="e.g. Israel, United States, Remote, United Kingdom" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3.5 py-2.5 text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+            </div>
+
+            <div class="pt-2 flex items-center gap-6 flex-wrap">
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" x-model="onboardingForm.remote_only" class="rounded border-white/20 text-brand-500">
+                <span class="text-slate-300 font-semibold">Remote-Only Positions</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" x-model="onboardingForm.include_linkedin" class="rounded border-white/20 text-brand-500">
+                <span class="text-slate-300 font-semibold">Include Live LinkedIn Public Search</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 3: MASTER RESUME (OPTIONAL) -->
+        <div x-show="onboardingStep === 3" class="space-y-4">
+          <p class="text-xs text-slate-300 leading-relaxed">Fast-track by uploading your existing resume (PDF, DOCX, YAML) or pasting text. CareerQuest AI parses your accomplishments into structured bullets.</p>
+
+          <div class="space-y-3 text-xs">
+            <div class="border-2 border-dashed border-white/15 hover:border-brand-500/50 rounded-2xl p-6 text-center transition cursor-pointer bg-surface-950/40 relative">
+              <input type="file" @change="onOnboardingFileSelected($event)" accept=".pdf,.docx,.txt,.md,.yaml,.yml" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full">
+              <i class="fa-solid fa-cloud-arrow-up text-2xl text-brand-400 mb-2 block"></i>
+              <p class="text-xs font-bold text-slate-200" x-text="onboardingCvFile ? onboardingCvFile.name : 'Click or drop PDF / DOCX / YAML resume'"></p>
+              <p class="text-[10px] text-slate-400 mt-1" x-text="onboardingCvFile ? `${(onboardingCvFile.size/1024).toFixed(1)} KB selected` : 'AI will automatically parse structure & skills'"></p>
+            </div>
+
+            <div class="text-center text-[10px] text-slate-500 uppercase font-bold">- or paste plain text -</div>
+
+            <div>
+              <textarea x-model="onboardingForm.cvText" rows="4" placeholder="Paste resume plain text, bullet points, or summary here (or leave blank to skip)..." class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-slate-200 text-xs focus:ring-1 focus:ring-brand-500 focus:outline-none custom-scrollbar font-mono"></textarea>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Wizard Footer / Nav Buttons -->
+      <div class="p-5 bg-surface-950/80 border-t border-white/10 flex items-center justify-between">
+        <div>
+          <button x-show="onboardingStep > 1" @click="onboardingStep--" class="px-4 py-2 rounded-xl bg-surface-850 hover:bg-surface-800 text-slate-300 hover:text-white text-xs font-semibold transition">
+            <i class="fa-solid fa-arrow-left mr-1"></i> Back
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+          <button x-show="onboardingStep < 3" @click="advanceOnboardingStep()" class="px-5 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs shadow-lg shadow-brand-500/25 transition">
+            Next Step <i class="fa-solid fa-arrow-right ml-1"></i>
+          </button>
+          
+          <button x-show="onboardingStep === 3" @click="completeOnboarding()" :disabled="onboardingLoading" class="px-6 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs shadow-lg shadow-brand-500/25 transition flex items-center gap-2 disabled:opacity-50">
+            <i class="fa-solid fa-check" :class="onboardingLoading ? 'animate-spin' : ''"></i>
+            <span x-text="onboardingLoading ? 'Saving Profile...' : 'Complete & Launch'"></span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- RESET PROFILE CONFIRMATION MODAL -->
+  <div x-show="modals.resetConfirm" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+    <div class="glass border border-rose-500/30 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4">
+      <div class="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center text-xl mx-auto">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+      </div>
+      <div class="text-center space-y-1">
+        <h3 class="text-base font-bold text-white">Reset Profile to Clean Slate?</h3>
+        <p class="text-xs text-slate-300 leading-relaxed">
+          This will wipe the candidate personal identity, experience, and contact details to prepare CareerQuest for a new candidate.
+        </p>
+        <p class="text-[11px] text-emerald-400 pt-1">
+          <i class="fa-solid fa-shield-halved mr-1"></i> An automatic backup snapshot will be saved in <code>data/backups/</code> first so your current profile can be restored at any time.
+        </p>
+      </div>
+      <div class="flex items-center gap-3 pt-2">
+        <button @click="modals.resetConfirm = false" class="flex-1 py-2.5 rounded-xl bg-surface-850 hover:bg-surface-800 text-slate-300 font-semibold text-xs transition">
+          Cancel
+        </button>
+        <button @click="executeResetProfile()" class="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30 transition">
+          Yes, Reset Profile
+        </button>
+      </div>
+    </div>
+  </div>
+
 <script>
 function careerQuestApp() {
   return {
     activeView: 'discovery',
+    mobileSidebarOpen: false,
     studioTab: 'cv',
     cvSubView: 'preview',
     profile: {
+      is_onboarded: false,
       preferences: {
         target_roles: ["Software Engineer", "Technical Program Manager", "Data Engineer"],
         target_locations: ["Israel", "United States", "Remote"],
@@ -1198,7 +1509,21 @@ function careerQuestApp() {
     mockQuestions: null,
     companyIntel: null,
     systemStatus: {},
-    modals: { studio: false, masterCv: false },
+    modals: { studio: false, masterCv: false, onboarding: false, resetConfirm: false },
+    onboardingStep: 1,
+    onboardingLoading: false,
+    onboardingCvFile: null,
+    onboardingForm: {
+      full_name: '',
+      email: '',
+      location: '',
+      tagline: '',
+      roles: '',
+      locations: '',
+      remote_only: false,
+      include_linkedin: true,
+      cvText: ''
+    },
     masterCvTab: 'ingest', // 'ingest', 'visual', 'backups'
     cvIngestState: {
       loading: false,
@@ -1234,7 +1559,60 @@ function careerQuestApp() {
     newDirectiveCategory: 'cv_style',
     showAddDirective: false,
 
+    // SPA Routing Support
+    parseCurrentRoute() {
+      const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+      const hash = window.location.hash.replace(/^#\/?/, '');
+      const validViews = ['discovery', 'pipeline', 'coach', 'copilot', 'profile', 'settings'];
+      
+      let target = '';
+      if (validViews.includes(path)) {
+        target = path;
+      } else if (validViews.includes(hash)) {
+        target = hash;
+      } else {
+        const saved = localStorage.getItem('career_quest_view');
+        if (validViews.includes(saved)) {
+          target = saved;
+        }
+      }
+
+      if (target === 'coach' || target === 'copilot') target = 'copilot';
+      if (!target) target = 'discovery';
+
+      this.activeView = target;
+      this.updateUrl(target, false);
+    },
+
+    switchView(view) {
+      if (view === 'coach') view = 'copilot';
+      this.activeView = view;
+      this.updateUrl(view, true);
+      localStorage.setItem('career_quest_view', view);
+      this.mobileSidebarOpen = false;
+    },
+
+    updateUrl(view, push = true) {
+      const routeName = view === 'copilot' ? 'coach' : view;
+      const newPath = `/${routeName}`;
+      if (window.location.pathname !== newPath) {
+        if (push) {
+          window.history.pushState({ view }, '', newPath);
+        } else {
+          window.history.replaceState({ view }, '', newPath);
+        }
+      }
+    },
+
     async init() {
+      this.parseCurrentRoute();
+      window.addEventListener('popstate', () => {
+        this.parseCurrentRoute();
+      });
+      window.addEventListener('hashchange', () => {
+        this.parseCurrentRoute();
+      });
+
       await Promise.all([
         this.fetchProfile(),
         this.fetchJobs(),
@@ -1243,6 +1621,148 @@ function careerQuestApp() {
         this.fetchDirectives(),
         this.fetchCopilotMessages()
       ]);
+
+      // If user hasn't completed onboarding, prompt the wizard
+      if (this.profile && !this.profile.is_onboarded) {
+        this.openOnboardingWizard();
+      }
+    },
+
+    openOnboardingWizard() {
+      this.onboardingStep = 1;
+      this.onboardingForm = {
+        full_name: this.profile.full_name || '',
+        email: this.profile.email || '',
+        location: this.profile.location || '',
+        tagline: this.profile.tagline || '',
+        roles: (this.profile.preferences?.target_roles || []).join(', '),
+        locations: (this.profile.preferences?.target_locations || []).join(', '),
+        remote_only: Boolean(this.profile.preferences?.remote_only),
+        include_linkedin: this.profile.preferences?.include_linkedin !== false,
+        cvText: ''
+      };
+      this.onboardingCvFile = null;
+      this.modals.onboarding = true;
+    },
+
+    closeOnboardingWizard() {
+      this.modals.onboarding = false;
+    },
+
+    advanceOnboardingStep() {
+      if (this.onboardingStep === 1) {
+        if (!this.onboardingForm.full_name.trim()) {
+          this.showToast('Please enter your full name to proceed.');
+          return;
+        }
+      }
+      this.onboardingStep++;
+    },
+
+    onOnboardingFileSelected(e) {
+      const file = e.target.files[0];
+      if (file) {
+        this.onboardingCvFile = file;
+      }
+    },
+
+    async completeOnboarding() {
+      this.onboardingLoading = true;
+      try {
+        if (this.onboardingCvFile) {
+          const formData = new FormData();
+          formData.append('file', this.onboardingCvFile);
+          const uploadRes = await fetch('/api/v1/profile/upload', {
+            method: 'POST',
+            body: formData
+          });
+          if (uploadRes.ok) {
+            const data = await uploadRes.json();
+            if (data.parsed) {
+              await fetch('/api/v1/profile/commit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ profile_data: data.parsed })
+              });
+            }
+          }
+        } else if (this.onboardingForm.cvText && this.onboardingForm.cvText.trim()) {
+          const parseRes = await fetch('/api/v1/profile/parse-text', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ raw_text: this.onboardingForm.cvText })
+          });
+          if (parseRes.ok) {
+            const data = await parseRes.json();
+            if (data.parsed) {
+              await fetch('/api/v1/profile/commit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ profile_data: data.parsed })
+              });
+            }
+          }
+        }
+
+        const roles = this.onboardingForm.roles.split(',').map(s => s.trim()).filter(Boolean);
+        const locations = this.onboardingForm.locations.split(',').map(s => s.trim()).filter(Boolean);
+
+        const updatePayload = {
+          is_onboarded: true,
+          full_name: this.onboardingForm.full_name.trim(),
+          email: this.onboardingForm.email.trim(),
+          location: this.onboardingForm.location.trim(),
+          tagline: this.onboardingForm.tagline.trim(),
+          preferences: {
+            target_roles: roles.length > 0 ? roles : ["Software Engineer"],
+            target_locations: locations.length > 0 ? locations : ["Remote"],
+            remote_only: this.onboardingForm.remote_only,
+            include_linkedin: this.onboardingForm.include_linkedin
+          }
+        };
+
+        const res = await fetch('/api/v1/profile', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatePayload)
+        });
+
+        if (res.ok) {
+          this.profile = await res.json();
+          this.locationsInput = (this.profile.preferences?.target_locations || []).join(', ');
+          this.rolesInput = (this.profile.preferences?.target_roles || []).join(', ');
+          this.modals.onboarding = false;
+          this.showToast(`Welcome, ${this.profile.full_name}! Profile configured successfully.`);
+        }
+      } catch (err) {
+        console.error(err);
+        this.showToast('Error finalizing onboarding profile');
+      } finally {
+        this.onboardingLoading = false;
+      }
+    },
+
+    openResetConfirmModal() {
+      this.modals.resetConfirm = true;
+    },
+
+    async executeResetProfile() {
+      try {
+        const res = await fetch('/api/v1/profile/reset', { method: 'POST' });
+        if (res.ok) {
+          this.profile = await res.json();
+          this.locationsInput = '';
+          this.rolesInput = '';
+          this.modals.resetConfirm = false;
+          this.showToast('Profile reset to clean slate. Automatic backup preserved.');
+          this.openOnboardingWizard();
+        } else {
+          this.showToast('Error resetting profile');
+        }
+      } catch (err) {
+        console.error(err);
+        this.showToast('Error executing profile reset');
+      }
     },
 
     async fetchProfile() {
@@ -1512,6 +2032,9 @@ function careerQuestApp() {
     async saveProfile() {
       this.updateLocationsList();
       this.updateRolesList();
+      if (this.profile.full_name && this.profile.full_name.trim().length > 0) {
+        this.profile.is_onboarded = true;
+      }
       try {
         const res = await fetch('/api/v1/profile', {
           method: 'PUT',
@@ -1520,7 +2043,7 @@ function careerQuestApp() {
         });
         if (res.ok) {
           this.profile = await res.json();
-          this.showToast('Master Profile & Search Preferences saved!');
+          this.showToast('Profile & preferences updated successfully!');
         }
       } catch (e) { this.showToast('Error saving profile'); }
     },
