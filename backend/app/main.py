@@ -66,6 +66,8 @@ def system_status():
 
 # Mount Frontend Static Assets
 frontend_dir = Path(__file__).resolve().parent.parent.parent / "frontend"
+if not frontend_dir.exists():
+    frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 if frontend_dir.exists():
     @app.get("/", response_class=HTMLResponse)
     def serve_index():
