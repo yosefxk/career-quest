@@ -48,59 +48,63 @@
   </style>
 </head>
 
-<body class="bg-surface-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-brand-500 selection:text-slate-950 flex flex-col" x-data="careerQuestApp()" x-init="init()">
+<body class="bg-surface-950 text-slate-100 min-h-screen font-sans antialiased selection:bg-brand-500 selection:text-slate-950 flex flex-col overflow-x-hidden" x-data="careerQuestApp()" x-init="init()">
 
   <!-- TOP APP HEADER -->
-  <header class="sticky top-0 z-30 glass border-b border-white/10 px-4 sm:px-8 py-3 flex items-center justify-between gap-4">
-    <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-brand-500/20 ring-1 ring-white/20">
-        <i class="fa-solid fa-compass text-slate-950 text-base font-black"></i>
-      </div>
-      <div>
-        <div class="flex items-center gap-2">
-          <h1 class="text-base sm:text-lg font-black tracking-tight text-white">CareerQuest</h1>
-          <span class="px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/30 text-[10px] font-bold font-mono tracking-wider">v1.0</span>
+  <header class="sticky top-0 z-30 glass border-b border-white/10">
+    <div class="max-w-7xl mx-auto w-full px-4 sm:px-6 py-3 flex items-center justify-between gap-3 sm:gap-4">
+      <!-- Left: Logo & App Title -->
+      <div class="flex items-center gap-3 shrink-0">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center shadow-lg shadow-brand-500/20 ring-1 ring-white/20">
+          <i class="fa-solid fa-compass text-slate-950 text-base font-black"></i>
         </div>
-        <p class="text-xs text-slate-400 hidden sm:block">AI Career Operations &bull; Parallel Scraping &bull; ATS Studio</p>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-black tracking-tight text-white">CareerQuest</h1>
+            <span class="px-2 py-0.5 rounded-md bg-brand-500/10 text-brand-400 border border-brand-500/30 text-[10px] font-bold font-mono tracking-wider">v1.0</span>
+          </div>
+          <p class="text-xs text-slate-400 hidden xl:block">AI Career Operations &bull; Parallel Scraping &bull; ATS Studio</p>
+        </div>
       </div>
-    </div>
 
-    <!-- Center Navigation Tabs -->
-    <div class="flex items-center bg-surface-900/90 p-1 rounded-2xl border border-white/10 text-xs">
-      <button @click="activeView = 'discovery'" :class="activeView === 'discovery' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-3 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5">
-        <i class="fa-solid fa-compass"></i>
-        <span>Discovery</span>
-      </button>
-      <button @click="activeView = 'pipeline'" :class="activeView === 'pipeline' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-3 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5 relative">
-        <i class="fa-solid fa-layer-group"></i>
-        <span>Pipeline</span>
-        <span x-show="jobs.length > 0" class="ml-1 px-1.5 py-0.2 rounded-full bg-brand-500 text-slate-950 font-bold text-[10px]" x-text="jobs.length"></span>
-      </button>
-      <button @click="activeView = 'copilot'" :class="activeView === 'copilot' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-3 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5">
-        <i class="fa-solid fa-user-tie text-emerald-300"></i>
-        <span>Career Coach</span>
-      </button>
-      <button @click="activeView = 'profile'" :class="activeView === 'profile' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-3 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5">
-        <i class="fa-solid fa-user-gear"></i>
-        <span class="hidden sm:inline">Master</span> <span>Profile</span>
-      </button>
-      <button @click="activeView = 'settings'" :class="activeView === 'settings' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-2.5 sm:px-3 py-1.5 rounded-xl transition flex items-center gap-1.5">
-        <i class="fa-solid fa-sliders"></i>
-      </button>
-    </div>
+      <!-- Center Navigation Tabs -->
+      <div class="flex items-center bg-surface-900/90 p-1 rounded-2xl border border-white/10 text-xs shrink-0 overflow-x-auto custom-scrollbar max-w-full">
+        <button @click="activeView = 'discovery'" :class="activeView === 'discovery' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-2.5 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap">
+          <i class="fa-solid fa-compass"></i>
+          <span class="hidden sm:inline">Discovery</span>
+        </button>
+        <button @click="activeView = 'pipeline'" :class="activeView === 'pipeline' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-2.5 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5 relative whitespace-nowrap">
+          <i class="fa-solid fa-layer-group"></i>
+          <span class="hidden sm:inline">Pipeline</span>
+          <span x-show="jobs.length > 0" class="ml-1 px-1.5 py-0.2 rounded-full bg-brand-500 text-slate-950 font-bold text-[10px]" x-text="jobs.length"></span>
+        </button>
+        <button @click="activeView = 'copilot'" :class="activeView === 'copilot' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-2.5 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap">
+          <i class="fa-solid fa-user-tie text-emerald-300"></i>
+          <span class="hidden sm:inline">Coach</span>
+        </button>
+        <button @click="activeView = 'profile'" :class="activeView === 'profile' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-2.5 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap">
+          <i class="fa-solid fa-user-gear"></i>
+          <span class="hidden sm:inline">Profile</span>
+        </button>
+        <button @click="activeView = 'settings'" :class="activeView === 'settings' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-2.5 sm:px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap" title="Settings">
+          <i class="fa-solid fa-sliders"></i>
+          <span class="hidden md:inline">Settings</span>
+        </button>
+      </div>
 
-    <!-- Candidate Profile Pill & Backup Status -->
-    <div class="flex items-center gap-2.5">
-      <template x-if="systemStatus.backup_active">
-        <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" title="Persistent backup storage active">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1"></span> Backup Active
-        </span>
-      </template>
-      <div class="hidden md:flex items-center gap-2 pl-2 border-l border-white/10">
-        <div class="w-8 h-8 rounded-full bg-surface-800 border border-brand-500/30 flex items-center justify-center text-brand-400 font-bold text-xs" x-text="profile.full_name ? profile.full_name.charAt(0) : 'U'"></div>
-        <div class="text-left">
-          <span class="text-xs font-bold text-white block leading-tight truncate max-w-[120px]" x-text="profile.full_name || 'Candidate'"></span>
-          <span class="text-[10px] text-slate-400 block leading-tight" x-text="systemStatus.ai_provider ? `${systemStatus.ai_provider.toUpperCase()}` : 'AI Ready'"></span>
+      <!-- Candidate Profile Pill & Backup Status -->
+      <div class="flex items-center gap-2.5 shrink-0">
+        <template x-if="systemStatus.backup_active">
+          <span class="hidden lg:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" title="Persistent backup storage active">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1"></span> Backup
+          </span>
+        </template>
+        <div class="flex items-center gap-2 pl-2 border-l border-white/10">
+          <div class="w-8 h-8 rounded-full bg-surface-800 border border-brand-500/30 flex items-center justify-center text-brand-400 font-bold text-xs shrink-0" x-text="profile.full_name ? profile.full_name.charAt(0) : 'U'"></div>
+          <div class="text-left hidden md:block">
+            <span class="text-xs font-bold text-white block leading-tight truncate max-w-[110px]" x-text="profile.full_name || 'Candidate'"></span>
+            <span class="text-[10px] text-slate-400 block leading-tight truncate max-w-[110px]" x-text="systemStatus.ai_provider ? `${systemStatus.ai_provider.toUpperCase()}` : 'AI Ready'"></span>
+          </div>
         </div>
       </div>
     </div>
