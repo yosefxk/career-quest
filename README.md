@@ -73,13 +73,15 @@ CareerQuest unifies this entire operational lifecycle into a private, containeri
 * **Role-Specific Mock Interview Studio**: Generates 10 targeted interview scenarios (5 Technical Architecture Deep-Dives + 5 STAR Behavioral Challenges) with structured answer blueprints based on the exact job requirements.
 * **Company Intelligence Dossier**: Summarizes strategic priorities, tech stack analysis, and interview style focus areas.
 
-### 🔌 6. Multi-Provider AI Gateway
-* Zero lock-in. Toggle seamlessly between leading AI providers via standard environment variables:
-  * **Google Gemini** (`gemini-3.6-flash`, `gemini-1.5-pro`)
+### 🔌 6. Multi-Provider AI Gateway & Local LLM Support
+* **Zero Vendor Lock-In**: Toggle seamlessly between leading cloud providers and 100% private, self-hosted local LLMs via standard environment variables:
+  * **Google Gemini** (`gemini-2.5-flash`, `gemini-3.6-flash`, `gemini-1.5-pro`)
   * **OpenAI** (`gpt-4o`, `gpt-4o-mini`, `o1`)
-  * **Anthropic Claude** (`claude-3-5-sonnet-20241022`)
+  * **Anthropic Claude** (`claude-3-5-sonnet-20241022`, `claude-3-5-haiku-20241022`)
   * **Groq** (`llama-3.3-70b-versatile`)
-  * **Ollama** (Local self-hosted models for 100% offline air-gapped privacy)
+  * **Ollama** (`llama3.1`, `mistral`, `deepseek-r1`, `qwen2.5`) for 100% offline air-gapped privacy
+  * **Local OpenAI-Compatible Runtimes** (**LM Studio**, **vLLM**, **LocalAI**) running on host or LAN
+
 
 ---
 
@@ -215,31 +217,56 @@ CareerQuest is designed for single-click deployment within Portainer:
        ports:
          - "${PORT:-8099}:8000"
        environment:
-         - DATA_DIR=/app/data
-         - CVS_DIR=/app/data/CVs
-         - AI_PROVIDER=${AI_PROVIDER:-gemini}
-         - AI_API_KEY=${AI_API_KEY}
-         - AI_MODEL=${AI_MODEL:-gemini-3.6-flash}
-         - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
-         - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
-         - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-https://api.anthropic.com/v1}
-         - GROQ_BASE_URL=${GROQ_BASE_URL:-https://api.groq.com/openai/v1}
-       volumes:
-         - career_quest_data:/app/data
-       healthcheck:
-         test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
-         interval: 30s
-         timeout: 5s
-         retries: 3
+          - DATA_DIR=/app/data
+          - CVS_DIR=/app/data/CVs
+          - AI_PROVIDER=${AI_PROVIDER:-gemini}
+          - AI_API_KEY=${AI_API_KEY}
+          - AI_MODEL=${AI_MODEL:-gemini-3.6-flash}
+          - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+          - LOCAL_LLM_BASE_URL=${LOCAL_LLM_BASE_URL:-http://host.docker.internal:1234/v1}
+          - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+          - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-https://api.anthropic.com/v1}
+          - GROQ_BASE_URL=${GROQ_BASE_URL:-https://api.groq.com/openai/v1}
+        extra_hosts:
+          - "host.docker.internal:host-gateway"
+        volumes:
+          - career_quest_data:/app/data
+        healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+          interval: 30s
+          timeout: 5s
+          retries: 3
 
    volumes:
      career_quest_data:
    ```
-4. Under **Environment variables**, add:
-   * `AI_PROVIDER`: `gemini` (or `openai`, `anthropic`, `groq`, `ollama`)
-   * `AI_API_KEY`: `<your_api_key>`
-   * `AI_MODEL`: `gemini-3.6-flash`
-   * `PORT`: `8099`
+4. Under **Environment variables**, set according to your chosen provider:
+   * **Ollama (Local / Offline)**:
+     * `AI_PROVIDER`: `ollama`
+     * `AI_MODEL`: `llama3.1` (or `mistral`, `deepseek-r1`, `qwen2.5`)
+     * `OLLAMA_BASE_URL`: `http://host.docker.internal:11434`
+     * `AI_API_KEY`: *(leave blank)*
+   * **LM Studio / vLLM / LocalAI (Local OpenAI-compatible)**:
+     * `AI_PROVIDER`: `local`
+     * `AI_MODEL`: `local-model`
+     * `LOCAL_LLM_BASE_URL`: `http://host.docker.internal:1234/v1`
+     * `AI_API_KEY`: *(leave blank)*
+   * **Google Gemini**:
+     * `AI_PROVIDER`: `gemini`
+     * `AI_API_KEY`: `<your_gemini_api_key>`
+     * `AI_MODEL`: `gemini-2.5-flash` or `gemini-3.6-flash`
+   * **OpenAI**:
+     * `AI_PROVIDER`: `openai`
+     * `AI_API_KEY`: `<your_openai_api_key>`
+     * `AI_MODEL`: `gpt-4o-mini` or `gpt-4o`
+   * **Anthropic Claude**:
+     * `AI_PROVIDER`: `anthropic`
+     * `AI_API_KEY`: `<your_anthropic_api_key>`
+     * `AI_MODEL`: `claude-3-5-sonnet-20241022`
+   * **Groq**:
+     * `AI_PROVIDER`: `groq`
+     * `AI_API_KEY`: `<your_groq_api_key>`
+     * `AI_MODEL`: `llama-3.3-70b-versatile`
 5. Click **Deploy the stack**.
 
 ---
@@ -249,12 +276,13 @@ CareerQuest is designed for single-click deployment within Portainer:
 | Environment Variable | Default Value | Description |
 | :--- | :--- | :--- |
 | `PORT` | `8099` | External host port mapping for the web application. |
-| `AI_PROVIDER` | `gemini` | Primary AI provider: `gemini`, `openai`, `anthropic`, `groq`, or `ollama`. |
-| `AI_API_KEY` | *(Required)* | API authentication key for the selected AI provider (not required for local Ollama). |
-| `AI_MODEL` | `gemini-3.6-flash` | Specific model identifier to use for evaluation, parsing, and synthesis. |
+| `AI_PROVIDER` | `gemini` | Primary AI provider: `gemini`, `openai`, `anthropic`, `groq`, `ollama`, or `local` (LM Studio/vLLM). |
+| `AI_API_KEY` | *(Empty)* | API authentication key for cloud providers. **Not required** for local LLMs (`ollama`, `local`). |
+| `AI_MODEL` | `gemini-2.5-flash` | Specific model identifier to use (automatically defaults per provider). |
 | `DATA_DIR` | `/app/data` | Path to persistent storage for SQLite databases and metadata. |
 | `CVS_DIR` | `/app/data/CVs` | Directory where compiled PDFs and Markdown resumes are exported. |
 | `OLLAMA_BASE_URL` | `http://host.docker.internal:11434` | Endpoint for self-hosted local Ollama instances. |
+| `LOCAL_LLM_BASE_URL`| `http://host.docker.internal:1234/v1` | Endpoint for local OpenAI-compatible runtimes (LM Studio, vLLM, LocalAI). |
 | `OPENAI_BASE_URL` | `https://api.openai.com/v1` | Custom OpenAI-compatible proxy or gateway endpoint. |
 | `ANTHROPIC_BASE_URL` | `https://api.anthropic.com/v1` | Custom Anthropic API endpoint. |
 | `GROQ_BASE_URL` | `https://api.groq.com/openai/v1` | Groq high-speed inference endpoint. |
