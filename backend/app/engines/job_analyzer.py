@@ -47,29 +47,39 @@ def extract_job_text_from_url(url: str) -> Tuple[str, str, str]:
         print(f"Error fetching URL {cleaned_url}: {e}")
         return "", "", cleaned_url
 
-def parse_uploaded_resume(file_bytes: bytes, filename: str) -> Optional[Dict[str, Any]]:
-    """
-    Extracts raw text from an uploaded resume (PDF, TXT, MD, YAML)
-    and uses the configured LLM to parse it into a standardized CandidateProfile dictionary.
-    """
-    extracted_text = ""
+def extract_text_from_file_bytes(filename: str, file_bytes: bytes) -> str:
+    """Extracts plain text from PDF, DOCX, TXT, MD, YAML or JSON files."""
     lower_fn = filename.lower()
-    
     if lower_fn.endswith(".pdf"):
         try:
             reader = PdfReader(BytesIO(file_bytes))
-            for page in reader.pages:
-                extracted_text += page.extract_text() + "\n"
+            return "\n".join([page.extract_text() or "" for page in reader.pages])
         except Exception as e:
             print(f"PDF read error: {e}")
-            return None
+            return ""
+    elif lower_fn.endswith((".docx", ".doc")):
+        try:
+            import docx
+            doc = docx.Document(BytesIO(file_bytes))
+            paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = " | ".join(cell.text.strip() for cell in row.cells if cell.text.strip())
+                    if row_text:
+                        paragraphs.append(row_text)
+            return "\n".join(paragraphs)
+        except Exception as e:
+            print(f"DOCX read error: {e}")
+            return ""
     else:
         try:
-            extracted_text = file_bytes.decode("utf-8")
+            return file_bytes.decode("utf-8")
         except Exception:
-            extracted_text = file_bytes.decode("latin-1", errors="ignore")
-            
-    if not extracted_text.strip():
+            return file_bytes.decode("latin-1", errors="ignore")
+
+def parse_raw_resume_text(extracted_text: str) -> Optional[Dict[str, Any]]:
+    """Uses configured LLM to parse unstructured resume text into a CandidateProfile dictionary."""
+    if not extracted_text or not extracted_text.strip():
         return None
 
     prompt = f"""
@@ -82,7 +92,7 @@ Resume Content:
 
 Requirements:
 1. Extract Candidate Contact Information (full_name, email, phone, location, citizenship, linkedin_url, github_url, portfolio_url, tagline).
-2. Extract Work Experience: Each position must have company, role, location, dates, and an array of bullets. For each bullet, assign a unique id (e.g. comp1_b1), category, relevant tags, and set default to true.
+2. Extract Work Experience: Each position must have company, role, location, dates, and an array of bullets. For each bullet, assign a unique id (e.g. comp1_b1), category, relevant tags, and set default to true. Bold key quantifiable metrics with <strong> tags.
 3. Extract Education: institution, degree, honors, gpa, dates.
 4. Extract Skills grouped into 3-4 clean categories (e.g. 'Core Competencies', 'Languages & Frameworks', 'Tools & Cloud', 'Leadership & Methodologies').
 5. Generate 2-3 tailored Archetypes (e.g., primary role family, secondary role family) with a 2-3 sentence executive summary.
@@ -122,6 +132,11 @@ Output ONLY valid JSON matching this schema:
 }}
 """
     return llm.generate_json(prompt, system_prompt="You are a JSON resume parser. Output strictly valid JSON with no markdown backticks.")
+
+def parse_uploaded_resume(file_bytes: bytes, filename: str) -> Optional[Dict[str, Any]]:
+    """Extracts text from file bytes and parses using the LLM."""
+    text = extract_text_from_file_bytes(filename, file_bytes)
+    return parse_raw_resume_text(text)
 
 def get_directives_block(directives: Optional[List[Dict[str, Any]]] = None) -> str:
     if directives is None:

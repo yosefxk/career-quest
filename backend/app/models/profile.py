@@ -69,3 +69,10 @@ class ProfileUpdateRequest(BaseModel):
     education: Optional[List[EducationItem]] = None
     skills: Optional[Dict[str, List[str]]] = None
     preferences: Optional[CareerPreferences] = None
+
+class TextIngestRequest(BaseModel):
+    raw_text: str
+
+class CommitProfileRequest(BaseModel):
+    profile_data: Dict[str, Any]
+

@@ -81,3 +81,46 @@ def test_digest_filtering(client):
     res = client.get("/api/v1/digest?region=all&category=all")
     assert res.status_code == 200
     assert isinstance(res.json(), list)
+
+def test_profile_ingest_and_backups(client, monkeypatch):
+    from app.routers import profile as profile_router
+    fake_profile = {
+        "full_name": "Taylor Swiftly",
+        "email": "taylor@swift.io",
+        "phone": "+1 555-0199",
+        "location": "San Francisco, CA",
+        "citizenship": "US Citizen",
+        "linkedin_url": "https://linkedin.com/in/taylorswiftly",
+        "github_url": "https://github.com/taylorswiftly",
+        "portfolio_url": None,
+        "tagline": "Staff Infrastructure Engineer",
+        "archetypes": {"infra_lead": {"title": "Infrastructure Lead", "summary": "Core infra lead."}},
+        "experience": [{"company": "Acme Cloud", "role": "Staff Engineer", "dates": "2021-Present", "bullets": [{"id": "acme_1", "text": "Optimized latency", "category": "Perf", "tags": ["cloud"], "default": True}]}],
+        "education": [{"institution": "MIT", "degree": "BS CS", "dates": "2017-2021"}],
+        "skills": {"Cloud": ["AWS", "K8s"]}
+    }
+    monkeypatch.setattr(profile_router, "parse_raw_resume_text", lambda text: fake_profile)
+    monkeypatch.setattr(profile_router, "parse_uploaded_resume", lambda content, fn: fake_profile)
+
+    # 1. Test parse-text
+    res = client.post("/api/v1/profile/parse-text", json={"raw_text": "Sample resume text"})
+    assert res.status_code == 200
+    assert res.json()["parsed"]["full_name"] == "Taylor Swiftly"
+
+    # 2. Test commit with backup
+    commit_res = client.post("/api/v1/profile/commit", json={"profile_data": fake_profile})
+    assert commit_res.status_code == 200
+    assert commit_res.json()["profile"]["full_name"] == "Taylor Swiftly"
+    assert commit_res.json()["backup_created"] is not None
+
+    # 3. Test list backups
+    backups_res = client.get("/api/v1/profile/backups")
+    assert backups_res.status_code == 200
+    backups = backups_res.json()
+    assert len(backups) >= 1
+
+    # 4. Test restore
+    backup_fn = backups[0]["filename"]
+    restore_res = client.post(f"/api/v1/profile/restore/{backup_fn}")
+    assert restore_res.status_code == 200
+

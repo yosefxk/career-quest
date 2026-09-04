@@ -570,11 +570,10 @@
             <p class="text-xs text-slate-400">Single Source of Truth for ATS resume tailoring, PDF generation, and AI outreach.</p>
           </div>
           <div class="flex items-center gap-2">
-            <label class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow flex items-center gap-1.5 cursor-pointer active:scale-95 transition">
-              <i class="fa-solid fa-file-arrow-up"></i>
-              <span>Upload Resume (PDF/YAML)</span>
-              <input type="file" @change="uploadMasterResume($event)" class="hidden" accept=".pdf,.txt,.md,.yaml,.yml">
-            </label>
+            <button @click="openMasterCvModal()" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white font-bold text-xs shadow-lg shadow-brand-600/30 flex items-center gap-1.5 cursor-pointer active:scale-95 transition">
+              <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i>
+              <span>Master CV Studio (Ingest / In-Depth)</span>
+            </button>
           </div>
         </div>
 
@@ -802,6 +801,367 @@
     </div>
   </div>
 
+  <!-- MASTER CV STUDIO MODAL -->
+  <div x-show="modals.masterCv" x-cloak class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4">
+    <div class="glass border border-white/10 rounded-3xl max-w-5xl w-full max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200" @click.away="modals.masterCv = false">
+      
+      <!-- Modal Header -->
+      <div class="px-5 sm:px-6 py-4 border-b border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-900/90 shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400 shrink-0">
+            <i class="fa-solid fa-address-book text-base"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h2 class="text-base font-bold text-white tracking-tight">Master CV Studio</h2>
+              <span class="px-2 py-0.5 rounded-full bg-brand-500/15 border border-brand-500/25 text-[10px] font-mono text-brand-300">Single Source of Truth</span>
+            </div>
+            <p class="text-xs text-slate-400">Ingest resumes, parse career history with AI, and manage versioned safe backups</p>
+          </div>
+        </div>
+
+        <!-- Subtabs Switcher & Close Button -->
+        <div class="flex items-center gap-2 self-end sm:self-auto">
+          <div class="flex items-center bg-surface-950/80 p-1 rounded-xl border border-white/10 text-xs">
+            <button @click="masterCvTab = 'ingest'" :class="masterCvTab === 'ingest' ? 'bg-brand-600 text-white font-semibold shadow-sm' : 'text-slate-400 hover:text-white'" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+              <i class="fa-solid fa-wand-magic-sparkles text-amber-300 text-xs"></i>
+              <span>Upload / Ingest</span>
+            </button>
+            <button @click="masterCvTab = 'visual'" :class="masterCvTab === 'visual' ? 'bg-brand-600 text-white font-semibold shadow-sm' : 'text-slate-400 hover:text-white'" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+              <i class="fa-solid fa-id-card text-xs"></i>
+              <span>Visual Profile</span>
+            </button>
+            <button @click="masterCvTab = 'backups'" :class="masterCvTab === 'backups' ? 'bg-brand-600 text-white font-semibold shadow-sm' : 'text-slate-400 hover:text-white'" class="px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+              <i class="fa-solid fa-clock-rotate-left text-xs"></i>
+              <span>Safe Backups</span>
+            </button>
+          </div>
+          <button @click="modals.masterCv = false" class="w-8 h-8 rounded-xl bg-surface-850 hover:bg-surface-800 border border-white/10 text-slate-400 hover:text-white flex items-center justify-center transition" title="Close"><i class="fa-solid fa-xmark text-sm"></i></button>
+        </div>
+      </div>
+
+      <!-- Modal Body (Scrollable) -->
+      <div class="p-5 sm:p-6 flex-1 overflow-y-auto custom-scrollbar space-y-5">
+
+        <!-- ================= TAB 1: UPLOAD & INGEST ================= -->
+        <div x-show="masterCvTab === 'ingest'" class="space-y-6">
+          <div class="bg-brand-500/10 border border-brand-500/20 rounded-2xl p-4 flex items-start gap-3">
+            <i class="fa-solid fa-sparkles text-brand-400 text-sm mt-0.5 shrink-0"></i>
+            <div class="text-xs text-slate-300 space-y-1">
+              <p class="font-semibold text-white">AI-Powered Resume Deconstruction</p>
+              <p class="text-slate-400">Upload your existing resume (<code class="text-brand-300">.pdf</code>, <code class="text-brand-300">.docx</code>, <code class="text-brand-300">.txt</code>, <code class="text-brand-300">.yaml</code>, <code class="text-brand-300">.json</code>) or paste raw text. The configured AI model will extract your roles, metrics, STAR bullets, and skills into your structured Master Profile schema with automated backup protection.</p>
+            </div>
+          </div>
+
+          <!-- Dual Ingest Options -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            
+            <!-- OPTION A: File Upload Dropzone -->
+            <div class="glass border border-white/10 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-file-arrow-up text-brand-400"></i> Option A: Upload Resume File
+                  </h3>
+                  <span class="text-[10px] text-slate-500 font-mono">PDF, Word, Text</span>
+                </div>
+                
+                <!-- Dropzone Area -->
+                <div @click="$refs.cqCvFileInput.click()" class="border-2 border-dashed border-white/15 hover:border-brand-500/60 rounded-xl p-6 text-center cursor-pointer transition bg-surface-950/40 hover:bg-surface-950/80 group">
+                  <input type="file" x-ref="cqCvFileInput" @change="onCvFileSelected($event)" accept=".pdf,.docx,.txt,.yaml,.json,.md" class="hidden">
+                  
+                  <template x-if="!cvIngestState.file">
+                    <div class="space-y-2">
+                      <div class="w-12 h-12 rounded-2xl bg-surface-850 group-hover:bg-brand-500/20 text-slate-400 group-hover:text-brand-400 mx-auto flex items-center justify-center transition">
+                        <i class="fa-solid fa-cloud-arrow-up text-xl"></i>
+                      </div>
+                      <p class="text-xs font-semibold text-slate-200">Click to browse or drop file here</p>
+                      <p class="text-[10px] text-slate-500">Supports .pdf, .docx, .txt, .yaml, .json (up to 10MB)</p>
+                    </div>
+                  </template>
+
+                  <template x-if="cvIngestState.file">
+                    <div class="space-y-2">
+                      <div class="w-12 h-12 rounded-2xl bg-brand-500/20 text-brand-400 mx-auto flex items-center justify-center">
+                        <i class="fa-solid fa-file-lines text-xl"></i>
+                      </div>
+                      <p class="text-xs font-bold text-white truncate max-w-xs mx-auto" x-text="cvIngestState.fileName"></p>
+                      <div class="flex items-center justify-center gap-2 text-[10px] text-slate-400">
+                        <span x-text="cvIngestState.fileSize"></span>
+                        <span>•</span>
+                        <button type="button" @click.stop="clearSelectedCvFile()" class="text-rose-400 hover:text-rose-300 underline">Remove</button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <button @click="parseUploadedCvFile()" :disabled="!cvIngestState.file || cvIngestState.loading" class="w-full py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg" :class="(!cvIngestState.file || cvIngestState.loading) ? 'bg-surface-800 text-slate-500 cursor-not-allowed' : 'bg-brand-600 hover:bg-brand-500 text-white shadow-brand-600/30 active:scale-98'">
+                <template x-if="cvIngestState.loading">
+                  <span class="inline-flex items-center gap-2"><i class="fa-solid fa-spinner fa-spin"></i> Extracting with AI...</span>
+                </template>
+                <template x-if="!cvIngestState.loading">
+                  <span class="inline-flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> Extract & Parse File</span>
+                </template>
+              </button>
+            </div>
+
+            <!-- OPTION B: Clipboard / Raw Text Paste -->
+            <div class="glass border border-white/10 rounded-2xl p-5 flex flex-col justify-between space-y-4">
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-2">
+                    <i class="fa-solid fa-clipboard text-indigo-400"></i> Option B: Paste from Clipboard
+                  </h3>
+                  <button type="button" @click="pasteFromClipboard()" class="px-2.5 py-1 rounded-lg bg-surface-800 hover:bg-surface-700 text-slate-300 hover:text-white text-[11px] font-semibold border border-white/5 transition flex items-center gap-1.5 active:scale-95">
+                    <i class="fa-solid fa-paste text-indigo-400"></i>
+                    <span>Paste Clipboard</span>
+                  </button>
+                </div>
+                
+                <div class="relative">
+                  <textarea x-model="cvIngestState.rawText" rows="6" placeholder="Paste raw CV text, LinkedIn profile text, or bio here..." class="w-full bg-surface-950/80 border border-white/10 text-xs text-slate-200 rounded-xl p-3.5 custom-scrollbar focus:outline-none focus:ring-2 focus:ring-brand-500 font-sans"></textarea>
+                  <div class="text-[10px] text-slate-500 text-right mt-1 font-mono" x-text="`${cvIngestState.rawText.length} characters`"></div>
+                </div>
+              </div>
+
+              <button @click="parseCvText()" :disabled="!cvIngestState.rawText.trim() || cvIngestState.loading" class="w-full py-2.5 px-4 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-lg" :class="(!cvIngestState.rawText.trim() || cvIngestState.loading) ? 'bg-surface-800 text-slate-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30 active:scale-98'">
+                <template x-if="cvIngestState.loading">
+                  <span class="inline-flex items-center gap-2"><i class="fa-solid fa-spinner fa-spin"></i> Extracting with AI...</span>
+                </template>
+                <template x-if="!cvIngestState.loading">
+                  <span class="inline-flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> Extract & Parse Text</span>
+                </template>
+              </button>
+            </div>
+
+          </div>
+
+          <!-- Error Feedback -->
+          <div x-show="cvIngestState.error" class="bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs rounded-xl p-3.5 flex items-center gap-2">
+            <i class="fa-solid fa-circle-exclamation text-rose-400"></i>
+            <span x-text="cvIngestState.error"></span>
+          </div>
+
+          <!-- AI Extracted Preview Section -->
+          <div x-show="cvIngestState.parsed" class="border border-emerald-500/30 bg-emerald-950/10 rounded-2xl p-5 space-y-4 animate-in fade-in duration-300">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-emerald-500/20">
+              <div class="flex items-center gap-2.5">
+                <span class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs"><i class="fa-solid fa-check"></i></span>
+                <div>
+                  <h4 class="text-xs font-bold text-white uppercase tracking-wider">AI Extraction Complete — Preview Profile</h4>
+                  <p class="text-[11px] text-emerald-300/80">Review extracted roles, bullet points, and skills before applying to Master Profile</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button @click="cvIngestState.parsed = null" class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white bg-surface-850 hover:bg-surface-800 border border-white/10 transition">Discard</button>
+                <button @click="applyParsedCvToMaster()" :disabled="cvIngestState.loading" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-600/30 transition flex items-center gap-1.5 active:scale-95">
+                  <i class="fa-solid fa-floppy-disk"></i>
+                  <span>Confirm & Save to Master Profile</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Candidate Summary Grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="bg-surface-950/60 p-3 rounded-xl border border-white/5">
+                <span class="text-[10px] uppercase font-mono text-slate-400 block">Candidate</span>
+                <span class="text-xs font-bold text-white truncate block" x-text="cvIngestState.parsed?.full_name || 'N/A'"></span>
+              </div>
+              <div class="bg-surface-950/60 p-3 rounded-xl border border-white/5">
+                <span class="text-[10px] uppercase font-mono text-slate-400 block">Email / Contact</span>
+                <span class="text-xs font-medium text-slate-200 truncate block" x-text="cvIngestState.parsed?.email || 'N/A'"></span>
+              </div>
+              <div class="bg-surface-950/60 p-3 rounded-xl border border-white/5">
+                <span class="text-[10px] uppercase font-mono text-slate-400 block">Work Roles</span>
+                <span class="text-xs font-bold text-brand-300 block" x-text="`${(cvIngestState.parsed?.experience || []).length} Roles`"></span>
+              </div>
+              <div class="bg-surface-950/60 p-3 rounded-xl border border-white/5">
+                <span class="text-[10px] uppercase font-mono text-slate-400 block">Total STAR Bullets</span>
+                <span class="text-xs font-bold text-emerald-400 block" x-text="`${countBullets(cvIngestState.parsed?.experience)} Bullets`"></span>
+              </div>
+            </div>
+
+            <!-- Extracted Roles Preview -->
+            <div class="space-y-3">
+              <h5 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                <i class="fa-solid fa-briefcase text-brand-400"></i> Extracted Roles & Impact Bullets
+              </h5>
+              <div class="space-y-2 max-h-60 overflow-y-auto custom-scrollbar pr-1">
+                <template x-for="(exp, idx) in (cvIngestState.parsed?.experience || [])" :key="idx">
+                  <div class="bg-surface-950/80 border border-white/10 rounded-xl p-3.5 space-y-2">
+                    <div class="flex items-center justify-between">
+                      <div>
+                        <span class="text-xs font-bold text-white" x-text="exp.role"></span>
+                        <span class="text-xs text-brand-300 font-semibold" x-text="` @ ${exp.company}`"></span>
+                      </div>
+                      <span class="text-[10px] font-mono text-slate-400" x-text="exp.dates"></span>
+                    </div>
+                    <ul class="space-y-1 pl-4 list-disc marker:text-brand-500 text-[11px] text-slate-300">
+                      <template x-for="(b, bidx) in (exp.bullets || [])" :key="bidx">
+                        <li class="leading-relaxed">
+                          <span x-html="b.text"></span>
+                          <span x-show="b.id" class="ml-1 text-[9px] font-mono text-slate-500" x-text="`[${b.id}]`"></span>
+                        </li>
+                      </template>
+                    </ul>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <div class="text-[11px] text-slate-400 flex items-center gap-2 pt-2 border-t border-emerald-500/10">
+              <i class="fa-solid fa-shield-halved text-emerald-400"></i>
+              <span>Safe snapshot protection active: An automated backup copy will be saved in data/backups/ before updating.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= TAB 2: VISUAL PROFILE ================= -->
+        <div x-show="masterCvTab === 'visual'" class="space-y-5">
+          <div class="space-y-6">
+            <!-- Personal Banner Card -->
+            <div class="glass border border-white/10 rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <h3 class="text-base font-bold text-white" x-text="profile.full_name || 'Candidate'"></h3>
+                  <span class="px-2 py-0.5 rounded-md bg-brand-500/20 text-brand-300 text-[10px] font-mono" x-text="profile.tagline || 'Professional'"></span>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                  <span x-show="profile.email" class="flex items-center gap-1.5"><i class="fa-solid fa-envelope text-slate-500 text-[11px]"></i> <span x-text="profile.email"></span></span>
+                  <span x-show="profile.phone" class="flex items-center gap-1.5"><i class="fa-solid fa-phone text-slate-500 text-[11px]"></i> <span x-text="profile.phone"></span></span>
+                  <span x-show="profile.location" class="flex items-center gap-1.5"><i class="fa-solid fa-location-dot text-slate-500 text-[11px]"></i> <span x-text="profile.location"></span></span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button @click="masterCvTab = 'ingest'" class="px-3 py-1.5 rounded-xl bg-surface-850 hover:bg-surface-800 border border-white/10 text-xs font-semibold text-slate-300 hover:text-white transition flex items-center gap-1.5">
+                  <i class="fa-solid fa-file-import text-brand-400"></i> Ingest New CV
+                </button>
+              </div>
+            </div>
+
+            <!-- Archetypes / Profiles -->
+            <div class="space-y-2">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                <i class="fa-solid fa-crosshairs text-brand-400"></i> Target Profiles / Archetypes
+              </h4>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <template x-for="(prof, key) in (profile.archetypes || {})" :key="key">
+                  <div class="bg-surface-950/80 border border-white/10 rounded-xl p-3.5 space-y-1.5">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-bold text-white" x-text="prof.title"></span>
+                      <span class="px-2 py-0.5 rounded bg-brand-500/10 text-brand-300 text-[9px] font-mono" x-text="key"></span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 line-clamp-2" x-text="prof.summary"></p>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Experience Timeline -->
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                  <i class="fa-solid fa-briefcase text-brand-400"></i> Career History & Impact Bullets
+                </h4>
+                <span class="text-[10px] font-mono text-slate-500" x-text="`${(profile.experience || []).length} Roles`"></span>
+              </div>
+              <div class="space-y-3">
+                <template x-for="(exp, idx) in (profile.experience || [])" :key="idx">
+                  <div class="glass border border-white/10 rounded-2xl p-4 space-y-3">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-2 border-b border-white/5">
+                      <div>
+                        <span class="text-xs font-bold text-white" x-text="exp.role"></span>
+                        <span class="text-xs text-brand-400 font-semibold" x-text="` @ ${exp.company}`"></span>
+                        <span x-show="exp.location" class="text-[10px] text-slate-500 ml-1" x-text="`(${exp.location})`"></span>
+                      </div>
+                      <span class="text-[10px] font-mono text-slate-400" x-text="exp.dates"></span>
+                    </div>
+                    <div class="space-y-2">
+                      <template x-for="(bullet, bidx) in (exp.bullets || [])" :key="bidx">
+                        <div class="p-2.5 rounded-xl bg-surface-950/60 border border-white/5 text-[11px] text-slate-200 space-y-1.5">
+                          <p class="leading-relaxed" x-html="bullet.text"></p>
+                          <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                            <span x-show="bullet.id" class="px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-300 text-[9px] font-mono" x-text="bullet.id"></span>
+                            <template x-for="tag in (bullet.tags || [])" :key="tag">
+                              <span class="px-1.5 py-0.5 rounded bg-surface-800 text-slate-400 text-[9px]" x-text="tag"></span>
+                            </template>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Skills Matrix -->
+            <div class="space-y-3" x-show="profile.skills">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                <i class="fa-solid fa-microchip text-indigo-400"></i> Skills & Competencies
+              </h4>
+              <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                <template x-for="(skillList, category) in (profile.skills || {})" :key="category">
+                  <div class="bg-surface-950/80 border border-white/10 rounded-xl p-3.5 space-y-2">
+                    <span class="text-[10px] font-mono uppercase text-slate-400 block tracking-wider" x-text="category"></span>
+                    <div class="flex flex-wrap gap-1.5">
+                      <template x-for="sk in (Array.isArray(skillList) ? skillList : [])" :key="sk">
+                        <span class="px-2 py-0.5 rounded-md bg-surface-850 border border-white/5 text-[10px] text-slate-300" x-text="sk"></span>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= TAB 3: SAFE BACKUPS ================= -->
+        <div x-show="masterCvTab === 'backups'" class="space-y-5">
+          <div class="p-4 rounded-2xl bg-surface-900 border border-white/10 space-y-3">
+            <div class="flex items-center justify-between pb-2 border-b border-white/5">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left text-emerald-400 text-xs"></i>
+                <h4 class="text-xs font-bold text-white">Safe Snapshot Backups</h4>
+                <span class="px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-mono" x-text="profileBackups.length"></span>
+              </div>
+              <button @click="fetchProfileBackups()" class="text-slate-400 hover:text-white text-xs p-1" title="Refresh backups"><i class="fa-solid fa-rotate-right" :class="loadingBackups ? 'fa-spin' : ''"></i></button>
+            </div>
+
+            <p class="text-xs text-slate-400">CareerQuest automatically saves full JSON snapshots before committing any resume upload or parsed update. You can 1-click restore any snapshot below.</p>
+
+            <!-- Backups List -->
+            <div class="overflow-y-auto custom-scrollbar space-y-2 max-h-96">
+              <template x-if="profileBackups.length === 0">
+                <div class="text-center py-6 text-slate-500 text-xs">
+                  No previous backups recorded yet.
+                </div>
+              </template>
+
+              <template x-for="b in profileBackups" :key="b.filename">
+                <div class="p-3 rounded-xl bg-surface-950/70 border border-white/5 hover:border-white/15 transition flex items-center justify-between gap-3">
+                  <div class="space-y-0.5">
+                    <span class="text-xs font-mono font-bold text-slate-200 block" x-text="b.filename"></span>
+                    <div class="flex items-center gap-2 text-[10px] text-slate-400">
+                      <span class="font-mono text-[9px]" x-text="b.created_at"></span>
+                      <span>•</span>
+                      <span class="font-mono text-[9px]" x-text="`${(b.size_bytes / 1024).toFixed(1)} KB`"></span>
+                    </div>
+                  </div>
+                  <button @click="restoreProfileBackup(b.filename)" class="px-3 py-1.5 rounded-lg bg-surface-850 hover:bg-emerald-600/30 text-emerald-400 text-xs font-semibold border border-emerald-500/20 transition active:scale-95">
+                    Restore
+                  </button>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
   <!-- Toast Notification -->
   <div x-show="toast.show" x-cloak class="fixed bottom-6 right-6 z-50 glass border border-white/10 text-slate-100 text-xs px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-2">
     <i class="fa-solid fa-circle-check text-brand-400"></i>
@@ -835,7 +1195,19 @@ function careerQuestApp() {
     mockQuestions: null,
     companyIntel: null,
     systemStatus: {},
-    modals: { studio: false },
+    modals: { studio: false, masterCv: false },
+    masterCvTab: 'ingest', // 'ingest', 'visual', 'backups'
+    cvIngestState: {
+      loading: false,
+      error: null,
+      file: null,
+      fileName: '',
+      fileSize: '',
+      rawText: '',
+      parsed: null
+    },
+    profileBackups: [],
+    loadingBackups: false,
     scanState: { active: false },
     toast: { show: false, message: '' },
     digestFilters: { q: '', category: 'all', region: 'all', min_match: 0, sort_by: 'match_desc' },
@@ -1138,19 +1510,145 @@ function careerQuestApp() {
       } catch (e) { this.showToast('Error saving profile'); }
     },
 
-    async uploadMasterResume(e) {
+    countBullets(expList) {
+      if (!expList || !Array.isArray(expList)) return 0;
+      return expList.reduce((acc, exp) => acc + (exp.bullets ? exp.bullets.length : 0), 0);
+    },
+
+    onCvFileSelected(e) {
       const file = e.target.files[0];
-      if (!file) return;
-      const formData = new FormData();
-      formData.append('file', file);
-      this.showToast('Parsing uploaded resume with AI...');
+      if (file) {
+        this.cvIngestState.file = file;
+        this.cvIngestState.fileName = file.name;
+        this.cvIngestState.fileSize = (file.size / 1024).toFixed(1) + ' KB';
+        this.cvIngestState.error = null;
+      }
+    },
+
+    clearSelectedCvFile() {
+      this.cvIngestState.file = null;
+      this.cvIngestState.fileName = '';
+      this.cvIngestState.fileSize = '';
+      if (this.$refs.cqCvFileInput) this.$refs.cqCvFileInput.value = '';
+    },
+
+    async parseUploadedCvFile() {
+      if (!this.cvIngestState.file) return;
+      this.cvIngestState.loading = true;
+      this.cvIngestState.error = null;
+      this.cvIngestState.parsed = null;
       try {
-        const res = await fetch('/api/v1/profile/upload', { method: 'POST', body: formData });
-        if (res.ok) {
-          await this.fetchProfile();
-          this.showToast('Master resume parsed & imported successfully!');
+        const formData = new FormData();
+        formData.append('file', this.cvIngestState.file);
+        const res = await fetch('/api/v1/profile/upload', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to parse resume file');
+        this.cvIngestState.parsed = data.parsed;
+        this.showToast(`AI extracted resume (${data.extracted_chars} characters)`);
+      } catch (e) {
+        this.cvIngestState.error = e.message;
+      } finally {
+        this.cvIngestState.loading = false;
+      }
+    },
+
+    async pasteFromClipboard() {
+      try {
+        if (!navigator.clipboard || !navigator.clipboard.readText) {
+          alert('Clipboard access not directly supported by browser. Please paste using Ctrl+V / Cmd+V into the text box.');
+          return;
         }
-      } catch (e) { this.showToast('Error parsing resume'); }
+        const text = await navigator.clipboard.readText();
+        if (text && text.trim()) {
+          this.cvIngestState.rawText = text;
+          this.showToast('Pasted text from clipboard!');
+        } else {
+          this.showToast('Clipboard is empty.');
+        }
+      } catch (e) {
+        alert('Clipboard access denied or unavailable: ' + e.message + '. You can paste directly into the text box.');
+      }
+    },
+
+    async parseCvText() {
+      if (!this.cvIngestState.rawText.trim()) return;
+      this.cvIngestState.loading = true;
+      this.cvIngestState.error = null;
+      this.cvIngestState.parsed = null;
+      try {
+        const res = await fetch('/api/v1/profile/parse-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ raw_text: this.cvIngestState.rawText })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to parse text');
+        this.cvIngestState.parsed = data.parsed;
+        this.showToast(`AI extracted resume (${data.extracted_chars} characters)`);
+      } catch (e) {
+        this.cvIngestState.error = e.message;
+      } finally {
+        this.cvIngestState.loading = false;
+      }
+    },
+
+    async applyParsedCvToMaster() {
+      if (!this.cvIngestState.parsed) return;
+      this.cvIngestState.loading = true;
+      try {
+        const res = await fetch('/api/v1/profile/commit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ profile_data: this.cvIngestState.parsed })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Failed to save Master Profile');
+        await this.fetchProfile();
+        this.showToast('Master Profile updated! Safe snapshot preserved.');
+        this.cvIngestState.parsed = null;
+        this.clearSelectedCvFile();
+        this.cvIngestState.rawText = '';
+        this.masterCvTab = 'visual';
+        await this.fetchProfileBackups();
+      } catch (e) {
+        alert('Failed to apply resume: ' + e.message);
+      } finally {
+        this.cvIngestState.loading = false;
+      }
+    },
+
+    async openMasterCvModal(tab = 'ingest') {
+      this.masterCvTab = tab;
+      await Promise.all([this.fetchProfile(), this.fetchProfileBackups()]);
+      this.modals.masterCv = true;
+    },
+
+    async fetchProfileBackups() {
+      this.loadingBackups = true;
+      try {
+        const res = await fetch('/api/v1/profile/backups');
+        this.profileBackups = await res.json();
+      } catch (e) {
+        console.error(e);
+      } finally {
+        this.loadingBackups = false;
+      }
+    },
+
+    async restoreProfileBackup(filename) {
+      if (!confirm(`Are you sure you want to restore "${filename}"? Current data will be safely backed up first.`)) return;
+      try {
+        const res = await fetch(`/api/v1/profile/restore/${encodeURIComponent(filename)}`, { method: 'POST' });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.detail || 'Failed to restore');
+        this.showToast(`Restored backup: ${filename}`);
+        await Promise.all([this.fetchProfile(), this.fetchProfileBackups()]);
+      } catch (e) {
+        alert('Failed to restore backup: ' + e.message);
+      }
     },
 
     async addDigestToPipeline(item) {
