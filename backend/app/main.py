@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import init_db
 from app.core.llm_gateway import llm
-from app.routers import profile, jobs, digest, tailor, ats, intel
+from app.routers import profile, jobs, digest, tailor, ats, intel, copilot
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -37,6 +37,7 @@ app.include_router(digest.router)
 app.include_router(tailor.router)
 app.include_router(ats.router)
 app.include_router(intel.router)
+app.include_router(copilot.router)
 
 @app.get("/api/health")
 def health_check():
@@ -57,7 +58,9 @@ def system_status():
         "ai_model": settings.AI_MODEL,
         "has_api_key": bool(settings.AI_API_KEY) or settings.AI_PROVIDER == "ollama",
         "data_dir": settings.DATA_DIR,
-        "cvs_dir": settings.CVS_DIR
+        "cvs_dir": settings.CVS_DIR,
+        "backup_dir": settings.BACKUP_DIR,
+        "backup_active": bool(settings.BACKUP_DIR)
     }
 
 # Mount Frontend Static Assets

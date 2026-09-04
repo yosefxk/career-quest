@@ -76,6 +76,11 @@
         <span>Pipeline</span>
         <span x-show="jobs.length > 0" class="ml-1 px-1.5 py-0.2 rounded-full bg-brand-500 text-slate-950 font-bold text-[10px]" x-text="jobs.length"></span>
       </button>
+      <button @click="activeView = 'copilot'" :class="activeView === 'copilot' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-3 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5 relative">
+        <i class="fa-solid fa-comments text-amber-300"></i>
+        <span>Copilot</span>
+        <span x-show="directives.length > 0" class="ml-1 px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 font-bold text-[9px]" x-text="directives.filter(d => d.is_active).length" title="Active Learned Directives"></span>
+      </button>
       <button @click="activeView = 'profile'" :class="activeView === 'profile' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-3 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5">
         <i class="fa-solid fa-user-gear"></i>
         <span class="hidden sm:inline">Master</span> <span>Profile</span>
@@ -85,8 +90,13 @@
       </button>
     </div>
 
-    <!-- Candidate Profile Pill & Quick Action -->
+    <!-- Candidate Profile Pill & Backup Status -->
     <div class="flex items-center gap-2.5">
+      <template x-if="systemStatus.backup_active">
+        <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" title="Persistent backup storage active">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse mr-1"></span> Backup Active
+        </span>
+      </template>
       <div class="hidden md:flex items-center gap-2 pl-2 border-l border-white/10">
         <div class="w-8 h-8 rounded-full bg-surface-800 border border-brand-500/30 flex items-center justify-center text-brand-400 font-bold text-xs" x-text="profile.full_name ? profile.full_name.charAt(0) : 'U'"></div>
         <div class="text-left">
@@ -272,7 +282,240 @@
       </div>
     </section>
 
-    <!-- VIEW 3: MASTER PROFILE & CAREER RADAR CONFIGURATION -->
+    <!-- VIEW 3: AI COPILOT & LEARNED DIRECTIVES -->
+    <section x-show="activeView === 'copilot'" class="space-y-4">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        
+        <!-- Left Column: Context & Directives Manager -->
+        <div class="lg:col-span-4 space-y-4">
+          
+          <!-- Job Context Selector Card -->
+          <div class="p-4 rounded-3xl bg-surface-900 border border-white/10 space-y-3 shadow-lg">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                <i class="fa-solid fa-bullseye text-brand-400"></i> Job Context
+              </span>
+              <button x-show="focusedJobId" @click="focusedJobId = ''" class="text-[10px] text-slate-400 hover:text-white flex items-center gap-1">
+                <i class="fa-solid fa-rotate-left"></i> Reset
+              </button>
+            </div>
+            
+            <select x-model="focusedJobId" class="w-full bg-surface-950 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:ring-1 focus:ring-brand-500 focus:outline-none">
+              <option value="">🌐 Global Career & CV Strategy</option>
+              <template x-for="j in jobs" :key="j.id">
+                <option :value="j.id" x-text="`${j.company} — ${j.title} (${j.match_score}%)`"></option>
+              </template>
+            </select>
+
+            <template x-if="getFocusedJob()">
+              <div class="p-3 rounded-xl bg-surface-950 border border-brand-500/20 text-xs space-y-1">
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-white" x-text="getFocusedJob().company"></span>
+                  <span class="font-mono text-brand-400 font-bold" x-text="`${getFocusedJob().match_score}% Match`"></span>
+                </div>
+                <div class="text-[11px] text-slate-300" x-text="getFocusedJob().title"></div>
+                <div class="text-[10px] text-slate-400" x-text="`${getFocusedJob().location} &bull; ${getFocusedJob().salary || 'Competitive'}`"></div>
+              </div>
+            </template>
+          </div>
+
+          <!-- Learned Directives & Style Memory Card -->
+          <div class="p-4 rounded-3xl bg-surface-900 border border-brand-500/20 space-y-3 shadow-lg">
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <i class="fa-solid fa-brain text-brand-400"></i> Learned Directives
+                </span>
+                <p class="text-[10px] text-slate-400 mt-0.5">Enforced across all CV generations & tailoring</p>
+              </div>
+              <button @click="showAddDirective = !showAddDirective" class="px-2 py-1 rounded-lg bg-brand-500/15 hover:bg-brand-500/25 border border-brand-500/30 text-brand-400 text-[10px] font-bold">
+                <i class="fa-solid fa-plus"></i> Add
+              </button>
+            </div>
+
+            <!-- Inline Add Form -->
+            <div x-show="showAddDirective" x-cloak class="p-3 rounded-xl bg-surface-950 border border-white/10 space-y-2">
+              <input type="text" x-model="newDirectiveText" placeholder="e.g. Always lead bullets with percentage metrics..." class="w-full bg-surface-900 border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none">
+              <div class="flex items-center justify-between gap-2">
+                <select x-model="newDirectiveCategory" class="bg-surface-900 border border-white/10 rounded-lg px-2 py-1 text-[10px] text-slate-300">
+                  <option value="cv_style">CV Style</option>
+                  <option value="tone">Tone & Phrasing</option>
+                  <option value="formatting">Formatting</option>
+                  <option value="job_preference">Job Targets</option>
+                  <option value="general">General</option>
+                </select>
+                <div class="flex items-center gap-1.5">
+                  <button @click="showAddDirective = false" class="text-[10px] text-slate-400 hover:text-white px-2 py-1">Cancel</button>
+                  <button @click="createDirective()" class="px-2.5 py-1 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-[10px] font-bold">Save Rule</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Directives List -->
+            <div class="space-y-2 max-h-72 overflow-y-auto custom-scrollbar pr-1">
+              <template x-for="d in directives" :key="d.id">
+                <div class="p-2.5 rounded-xl border transition space-y-1.5" :class="d.is_active ? 'bg-surface-950 border-white/10' : 'bg-surface-950/40 border-white/5 opacity-50'">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider" :class="d.is_active ? 'bg-brand-500/10 text-brand-400' : 'bg-surface-800 text-slate-500'" x-text="d.category"></span>
+                    <div class="flex items-center gap-2">
+                      <input type="checkbox" :checked="d.is_active" @change="toggleDirective(d)" class="rounded border-white/20 text-brand-500 cursor-pointer">
+                      <button @click="deleteDirective(d.id)" class="text-slate-500 hover:text-rose-400 text-xs"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                  </div>
+                  <p class="text-[11px] text-slate-200 leading-snug" x-text="d.rule_text"></p>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Quick Prompts Card -->
+          <div class="p-4 rounded-3xl bg-surface-900 border border-white/10 space-y-2 shadow-lg">
+            <span class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-wand-magic-sparkles text-amber-300"></i> Prompt Starters
+            </span>
+            <div class="flex flex-col gap-1.5 pt-1">
+              <button @click="usePromptStarter('Review my current Master CV bullets and suggest 3 high-impact quantified improvements.')" class="text-left p-2 rounded-xl bg-surface-950 hover:bg-surface-850 text-slate-300 hover:text-white text-[11px] transition">
+                💡 "Review my Master CV bullets & improve metrics"
+              </button>
+              <button @click="usePromptStarter('Remember this rule: Always highlight AWS, Kubernetes, and high-scale Golang/Python architecture in my summaries.')" class="text-left p-2 rounded-xl bg-surface-950 hover:bg-surface-850 text-slate-300 hover:text-white text-[11px] transition">
+                🧠 "Teach rule: Emphasize AWS, Kubernetes & scale"
+              </button>
+              <button @click="usePromptStarter('Remember this rule: Avoid passive phrases like \'participated in\' or \'responsible for\'. Use strong ownership verbs.')" class="text-left p-2 rounded-xl bg-surface-950 hover:bg-surface-850 text-slate-300 hover:text-white text-[11px] transition">
+                🚫 "Teach rule: Avoid passive phrases"
+              </button>
+              <button @click="usePromptStarter('Which jobs in my pipeline have the strongest match for my background and how should I pitch them?')" class="text-left p-2 rounded-xl bg-surface-950 hover:bg-surface-850 text-slate-300 hover:text-white text-[11px] transition">
+                🎯 "Analyze my top pipeline job matches"
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right Column: Interactive Copilot Chat Window -->
+        <div class="lg:col-span-8 flex flex-col h-[760px] bg-surface-900 border border-white/10 rounded-3xl p-5 shadow-2xl space-y-4">
+          
+          <!-- Chat Header -->
+          <div class="flex items-center justify-between pb-3 border-b border-white/5">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-slate-950 font-bold shadow">
+                <i class="fa-solid fa-sparkles text-sm"></i>
+              </div>
+              <div>
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                  <span>AI Copilot & Career Strategist</span>
+                  <span class="px-2 py-0.2 rounded-full bg-surface-800 text-brand-400 text-[10px] font-mono" x-text="systemStatus.ai_model || 'AI Ready'"></span>
+                </h3>
+                <p class="text-[11px] text-slate-400" x-text="focusedJobId ? `Focused on: ${getFocusedJob()?.company} — ${getFocusedJob()?.title}` : 'Grounded in Master Profile & Active Pipeline'"></p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <button @click="clearChatMessages()" class="px-2.5 py-1.5 rounded-xl bg-surface-950 hover:bg-surface-800 text-slate-400 hover:text-white border border-white/5 text-xs font-semibold flex items-center gap-1.5 transition" title="Clear chat history">
+                <i class="fa-solid fa-trash-can text-[10px]"></i> <span class="hidden sm:inline">Clear Chat</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Messages Stream -->
+          <div id="copilotMessageStream" class="flex-1 overflow-y-auto custom-scrollbar space-y-4 pr-1">
+            
+            <!-- Empty State Welcome -->
+            <template x-if="copilotMessages.length === 0">
+              <div class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400 space-y-3">
+                <div class="w-12 h-12 rounded-2xl bg-brand-500/10 border border-brand-500/20 text-brand-400 flex items-center justify-center text-xl">
+                  <i class="fa-solid fa-comments"></i>
+                </div>
+                <div class="max-w-md space-y-1">
+                  <h4 class="text-sm font-bold text-white">How can I assist your career journey today?</h4>
+                  <p class="text-xs text-slate-400">Ask questions about your CVs, get tailored executive summaries, analyze job descriptions, or teach me your style preferences. Everything you teach is persistently remembered.</p>
+                </div>
+              </div>
+            </template>
+
+            <!-- Message List -->
+            <template x-for="msg in copilotMessages" :key="msg.id || msg.content">
+              <div class="space-y-1.5">
+                
+                <!-- User Bubble -->
+                <template x-if="msg.role === 'user'">
+                  <div class="flex justify-end gap-2.5">
+                    <div class="max-w-2xl bg-brand-600 text-white rounded-2xl rounded-tr-none px-4 py-3 text-xs leading-relaxed shadow-lg">
+                      <p class="whitespace-pre-wrap" x-text="msg.content"></p>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Assistant Bubble -->
+                <template x-if="msg.role === 'assistant'">
+                  <div class="flex justify-start gap-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-surface-800 border border-brand-500/30 text-brand-400 flex items-center justify-center text-xs shrink-0 mt-1">
+                      <i class="fa-solid fa-sparkles text-[10px]"></i>
+                    </div>
+                    <div class="max-w-2xl space-y-2">
+                      <div class="bg-surface-950 border border-white/10 rounded-2xl rounded-tl-none p-4 text-xs text-slate-200 leading-relaxed shadow-lg">
+                        <div class="prose prose-invert max-w-none text-xs space-y-2" x-html="formatMarkdown(msg.content)"></div>
+                      </div>
+                      
+                      <!-- Learned Directive Notification Badge -->
+                      <template x-if="msg.metadata?.saved_directive">
+                        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[11px] font-semibold">
+                          <i class="fa-solid fa-lightbulb text-amber-300"></i>
+                          <span>Learned new rule: "<span x-text="msg.metadata.saved_directive.rule_text"></span>" (Saved to Directives)</span>
+                        </div>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+
+              </div>
+            </template>
+
+            <!-- Typing Indicator -->
+            <div x-show="chatSending" class="flex justify-start gap-2.5">
+              <div class="w-7 h-7 rounded-lg bg-surface-800 border border-brand-500/30 text-brand-400 flex items-center justify-center text-xs shrink-0 mt-1 animate-pulse">
+                <i class="fa-solid fa-sparkles text-[10px]"></i>
+              </div>
+              <div class="bg-surface-950 border border-white/10 rounded-2xl rounded-tl-none px-4 py-3 text-xs text-slate-400 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-brand-400 animate-bounce"></span>
+                <span class="w-2 h-2 rounded-full bg-brand-400 animate-bounce [animation-delay:0.2s]"></span>
+                <span class="w-2 h-2 rounded-full bg-brand-400 animate-bounce [animation-delay:0.4s]"></span>
+                <span class="text-[11px] ml-1">Copilot is thinking...</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Chat Input Area -->
+          <div class="pt-2 border-t border-white/5 space-y-2">
+            <div class="relative flex items-end gap-2 bg-surface-950 border border-white/10 rounded-2xl p-2 focus-within:border-brand-500/50 transition">
+              <textarea 
+                x-model="chatInput" 
+                @keydown.enter="handleChatEnter($event)"
+                placeholder="Ask about your CV, pipeline, or teach a new style preference... (Enter to send, Shift+Enter for newline)"
+                rows="2" 
+                class="flex-1 bg-transparent border-none text-xs text-slate-200 placeholder-slate-500 resize-none focus:outline-none p-1.5 custom-scrollbar"
+              ></textarea>
+              <button 
+                @click="sendChatMessage()" 
+                :disabled="!chatInput.trim() || chatSending"
+                class="px-4 py-2 bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold rounded-xl text-xs shadow flex items-center gap-1.5 transition active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+              >
+                <i class="fa-solid fa-paper-plane text-xs"></i>
+                <span class="hidden sm:inline">Send</span>
+              </button>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-500 px-1">
+              <span>Tip: Say <i>"Remember:"</i> or <i>"Always..."</i> to automatically save a persistent style directive.</span>
+              <span x-text="`${directives.filter(d => d.is_active).length} active rules enforced`"></span>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- VIEW 4: MASTER PROFILE & CAREER RADAR CONFIGURATION -->
     <section x-show="activeView === 'profile'" class="space-y-6 max-w-4xl mx-auto">
       
       <!-- Career Radar & Discovery Preferences Card -->
@@ -370,7 +613,7 @@
       </div>
     </section>
 
-    <!-- VIEW 4: SYSTEM & PORTAINER SETTINGS -->
+    <!-- VIEW 5: SYSTEM & PORTAINER SETTINGS -->
     <section x-show="activeView === 'settings'" class="space-y-6 max-w-3xl mx-auto">
       <div class="p-6 rounded-3xl bg-surface-900 border border-white/10 space-y-5">
         <h2 class="text-lg font-bold text-white">System & AI Gateway Configuration</h2>
@@ -422,6 +665,9 @@
         </div>
 
         <div class="flex items-center gap-2">
+          <button @click="askCopilotAboutJob(selectedJob)" class="px-2.5 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-300 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition" title="Ask AI Copilot about this role">
+            <i class="fa-solid fa-wand-magic-sparkles text-xs"></i> <span>Ask Copilot</span>
+          </button>
           <button @click="freezeApplicationSnapshot()" class="px-3 py-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition">
             <i class="fa-solid fa-camera"></i> <span>Snapshot & Apply</span>
           </button>
@@ -603,8 +849,25 @@ function careerQuestApp() {
       { id: 'offer', title: 'Offer' }
     ],
 
+    // Copilot & Directives State
+    copilotMessages: [],
+    directives: [],
+    chatInput: '',
+    chatSending: false,
+    focusedJobId: '',
+    newDirectiveText: '',
+    newDirectiveCategory: 'cv_style',
+    showAddDirective: false,
+
     async init() {
-      await Promise.all([this.fetchProfile(), this.fetchJobs(), this.fetchDigest(), this.fetchSystemStatus()]);
+      await Promise.all([
+        this.fetchProfile(),
+        this.fetchJobs(),
+        this.fetchDigest(),
+        this.fetchSystemStatus(),
+        this.fetchDirectives(),
+        this.fetchCopilotMessages()
+      ]);
     },
 
     async fetchProfile() {
@@ -641,6 +904,11 @@ function careerQuestApp() {
       return this.jobs.filter(j => j.status === status);
     },
 
+    getFocusedJob() {
+      if (!this.focusedJobId) return null;
+      return this.jobs.find(j => j.id == this.focusedJobId) || null;
+    },
+
     async fetchDigest() {
       try {
         const params = new URLSearchParams();
@@ -660,6 +928,176 @@ function careerQuestApp() {
         const res = await fetch('/api/v1/system/status');
         if (res.ok) this.systemStatus = await res.json();
       } catch (e) { console.error(e); }
+    },
+
+    // Copilot Methods
+    async fetchDirectives() {
+      try {
+        const res = await fetch('/api/v1/copilot/directives');
+        if (res.ok) this.directives = await res.json();
+      } catch (e) { console.error(e); }
+    },
+
+    async fetchCopilotMessages() {
+      try {
+        const res = await fetch('/api/v1/copilot/messages');
+        if (res.ok) {
+          this.copilotMessages = await res.json();
+          this.scrollChatToBottom();
+        }
+      } catch (e) { console.error(e); }
+    },
+
+    async sendChatMessage() {
+      const text = this.chatInput.trim();
+      if (!text || this.chatSending) return;
+
+      this.copilotMessages.push({
+        role: 'user',
+        content: text,
+        created_at: new Date().toISOString()
+      });
+      this.chatInput = '';
+      this.chatSending = true;
+      this.scrollChatToBottom();
+
+      try {
+        const res = await fetch('/api/v1/copilot/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: text,
+            focused_job_id: this.focusedJobId ? parseInt(this.focusedJobId) : null
+          })
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          this.copilotMessages.push({
+            role: 'assistant',
+            content: data.reply,
+            metadata: { saved_directive: data.new_directive },
+            created_at: data.created_at
+          });
+
+          if (data.new_directive) {
+            await this.fetchDirectives();
+            this.showToast(`Learned new directive: "${data.new_directive.rule_text}"`);
+          }
+        } else {
+          this.copilotMessages.push({
+            role: 'assistant',
+            content: 'I encountered an error connecting to the AI Gateway. Please check your API key or endpoint configuration in Settings.',
+            created_at: new Date().toISOString()
+          });
+        }
+      } catch (e) {
+        this.copilotMessages.push({
+          role: 'assistant',
+          content: 'Error connecting to the Copilot server.',
+          created_at: new Date().toISOString()
+        });
+      } finally {
+        this.chatSending = false;
+        this.scrollChatToBottom();
+      }
+    },
+
+    handleChatEnter(e) {
+      if (!e.shiftKey) {
+        e.preventDefault();
+        this.sendChatMessage();
+      }
+    },
+
+    usePromptStarter(text) {
+      this.chatInput = text;
+      this.sendChatMessage();
+    },
+
+    askCopilotAboutJob(job) {
+      if (!job) return;
+      this.focusedJobId = job.id;
+      this.modals.studio = false;
+      this.activeView = 'copilot';
+      this.usePromptStarter(`Analyze my fit for ${job.title} at ${job.company}. What key achievements should I emphasize in my CV and summary for this role?`);
+    },
+
+    async clearChatMessages() {
+      try {
+        await fetch('/api/v1/copilot/messages', { method: 'DELETE' });
+        this.copilotMessages = [];
+        this.showToast('Chat history cleared.');
+      } catch (e) { console.error(e); }
+    },
+
+    async createDirective() {
+      if (!this.newDirectiveText.trim()) return;
+      try {
+        const res = await fetch('/api/v1/copilot/directives', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            rule_text: this.newDirectiveText.trim(),
+            category: this.newDirectiveCategory
+          })
+        });
+        if (res.ok) {
+          this.newDirectiveText = '';
+          this.showAddDirective = false;
+          await this.fetchDirectives();
+          this.showToast('New directive saved & enforced!');
+        }
+      } catch (e) { console.error(e); }
+    },
+
+    async toggleDirective(d) {
+      d.is_active = !d.is_active;
+      try {
+        await fetch(`/api/v1/copilot/directives/${d.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_active: d.is_active })
+        });
+        this.showToast(d.is_active ? 'Directive enabled' : 'Directive disabled');
+      } catch (e) { console.error(e); }
+    },
+
+    async deleteDirective(id) {
+      try {
+        await fetch(`/api/v1/copilot/directives/${id}`, { method: 'DELETE' });
+        await this.fetchDirectives();
+        this.showToast('Directive removed.');
+      } catch (e) { console.error(e); }
+    },
+
+    scrollChatToBottom() {
+      setTimeout(() => {
+        const el = document.getElementById('copilotMessageStream');
+        if (el) el.scrollTop = el.scrollHeight;
+      }, 50);
+    },
+
+    formatMarkdown(text) {
+      if (!text) return '';
+      let html = text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+      
+      // Bold
+      html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      // Inline code
+      html = html.replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 rounded bg-surface-800 text-brand-300 font-mono text-[11px]">$1</code>');
+      // Headers
+      html = html.replace(/^### (.*$)/gim, '<h4 class="font-bold text-white text-xs mt-2 mb-1">$1</h4>');
+      html = html.replace(/^## (.*$)/gim, '<h3 class="font-bold text-white text-sm mt-3 mb-1.5">$1</h3>');
+      html = html.replace(/^# (.*$)/gim, '<h2 class="font-bold text-white text-base mt-4 mb-2">$1</h2>');
+      // Unordered lists
+      html = html.replace(/^\s*[-*]\s+(.*$)/gim, '<li class="ml-4 list-disc text-slate-200">$1</li>');
+      // Linebreaks
+      html = html.replace(/\n/g, '<br>');
+      return html;
     },
 
     startParallelScan() {

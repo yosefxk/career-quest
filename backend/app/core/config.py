@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     
     # Optional Cloud & Local Backups
     S3_BUCKET: str = os.getenv("S3_BUCKET", "")
-    SMB_BACKUP_DIR: str = os.getenv("SMB_BACKUP_DIR", "")
+    BACKUP_DIR: str = os.getenv("BACKUP_DIR", os.getenv("SMB_BACKUP_DIR", ""))
 
     @property
     def db_path(self) -> str:

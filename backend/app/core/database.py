@@ -150,8 +150,36 @@ def init_db():
     )
     """)
 
+    # 7. User Directives & Style Guidance (Taught Opinions & Rules)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user_directives (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        candidate_id INTEGER DEFAULT 1,
+        category TEXT DEFAULT 'cv_style', -- 'cv_style', 'tone', 'formatting', 'job_preference', 'general'
+        rule_text TEXT NOT NULL,
+        is_active INTEGER DEFAULT 1,
+        source TEXT DEFAULT 'chat',      -- 'chat' or 'manual'
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+    )
+    """)
+
+    # 8. Copilot Multi-Turn Chat Messages
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS copilot_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id TEXT DEFAULT 'default',
+        candidate_id INTEGER DEFAULT 1,
+        role TEXT NOT NULL,              -- 'user', 'assistant', 'system'
+        content TEXT NOT NULL,
+        metadata_json TEXT,              -- JSON for attached job_id, actions, extracted directive IDs
+        created_at TEXT NOT NULL
+    )
+    """)
+
     conn.commit()
     seed_default_profile_if_empty(conn)
+    seed_default_directives_if_empty(conn)
     conn.close()
 
 def seed_default_profile_if_empty(conn):
@@ -203,4 +231,23 @@ def seed_default_profile_if_empty(conn):
             now,
             now
         ))
+        conn.commit()
+
+def seed_default_directives_if_empty(conn):
+    """Initializes standard best-practice career directives if none exist."""
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM user_directives")
+    if cursor.fetchone()[0] == 0:
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        initial_directives = [
+            ("cv_style", "Lead resume bullets with strong active verbs and quantify business impact in USD, latency reduction, or percentage scale.", "manual"),
+            ("formatting", "Strictly enforce a clean 1-page resume budget with 7 to 9 high-impact bullets across career history.", "manual"),
+            ("tone", "Avoid generic corporate filler phrases like 'responsible for' or 'participated in'; emphasize leadership, engineering ownership, and architecture.", "manual"),
+            ("cv_style", "Ensure tailored executive summaries directly cite target role requirements and align technical achievements to the company mission.", "manual")
+        ]
+        for cat, text, src in initial_directives:
+            cursor.execute("""
+            INSERT INTO user_directives (candidate_id, category, rule_text, is_active, source, created_at, updated_at)
+            VALUES (1, ?, ?, 1, ?, ?, ?)
+            """, (cat, text, src, now, now))
         conn.commit()

@@ -123,17 +123,30 @@ Output ONLY valid JSON matching this schema:
 """
     return llm.generate_json(prompt, system_prompt="You are a JSON resume parser. Output strictly valid JSON with no markdown backticks.")
 
-def analyze_job_fit(job_text: str, candidate_profile: Dict[str, Any], url: str = "") -> Dict[str, Any]:
+def get_directives_block(directives: Optional[List[Dict[str, Any]]] = None) -> str:
+    if directives is None:
+        try:
+            from app.engines.copilot_engine import get_active_directives
+            directives = get_active_directives()
+        except Exception:
+            directives = []
+    if not directives:
+        return ""
+    rules = "\n".join([f"- [{d['category'].upper()}] {d['rule_text']}" for d in directives])
+    return f"\n\nSTRICT USER DIRECTIVES & TAUGHT STYLE PREFERENCES (ENFORCE THESE RULES):\n{rules}\n"
+
+def analyze_job_fit(job_text: str, candidate_profile: Dict[str, Any], url: str = "", directives: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     cand_name = candidate_profile.get("full_name", "Candidate")
     cand_skills = candidate_profile.get("skills", {})
     archetypes = candidate_profile.get("archetypes", {})
+    directives_text = get_directives_block(directives)
     
     prompt = f"""
 You are an Executive Tech Career Strategist analyzing a job posting for candidate {cand_name}.
 
 Candidate Archetypes: {json.dumps(archetypes)}
 Candidate Skills: {json.dumps(cand_skills)}
-
+{directives_text}
 Job Description:
 \"\"\"
 {job_text[:8000]}
@@ -244,11 +257,12 @@ def audit_ats_compliance(html_content: str, candidate_profile: Dict[str, Any], j
         "matched_keywords": matched_kws[:12]
     }
 
-def generate_recruiter_inmails(company: str, title: str, job_description: str, candidate_profile: Dict[str, Any]) -> Dict[str, str]:
+def generate_recruiter_inmails(company: str, title: str, job_description: str, candidate_profile: Dict[str, Any], directives: Optional[List[Dict[str, Any]]] = None) -> Dict[str, str]:
+    directives_text = get_directives_block(directives)
     prompt = f"""
 Write 3 distinct high-converting LinkedIn InMail messages for {candidate_profile.get('full_name')} reaching out for {title} at {company}.
 Candidate summary: {candidate_profile.get('tagline')}
-
+{directives_text}
 Job details snippet:
 \"\"\"
 {job_description[:1500]}
@@ -295,11 +309,13 @@ Output strictly JSON:
         }
     return res
 
-def generate_role_mock_interview(company: str, title: str, job_description: str, candidate_profile: Dict[str, Any]) -> Dict[str, Any]:
+def generate_role_mock_interview(company: str, title: str, job_description: str, candidate_profile: Dict[str, Any], directives: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+    directives_text = get_directives_block(directives)
     prompt = f"""
 Generate 10 role-specific mock interview questions (5 Technical Architecture/Core Skills + 5 STAR Behavioral) for candidate {candidate_profile.get('full_name')} interviewing for {title} at {company}.
 
 Candidate details: {candidate_profile.get('tagline')}
+{directives_text}
 Job snippet: {job_description[:2000]}
 
 Output strictly JSON:
