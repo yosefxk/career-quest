@@ -76,10 +76,9 @@
         <span>Pipeline</span>
         <span x-show="jobs.length > 0" class="ml-1 px-1.5 py-0.2 rounded-full bg-brand-500 text-slate-950 font-bold text-[10px]" x-text="jobs.length"></span>
       </button>
-      <button @click="activeView = 'copilot'" :class="activeView === 'copilot' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-3 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5 relative">
+      <button @click="activeView = 'copilot'" :class="activeView === 'copilot' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-3 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5">
         <i class="fa-solid fa-user-tie text-emerald-300"></i>
         <span>Career Coach</span>
-        <span x-show="directives.length > 0" class="ml-1 px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 font-bold text-[9px]" x-text="directives.filter(d => d.is_active).length" title="Active Learned Directives"></span>
       </button>
       <button @click="activeView = 'profile'" :class="activeView === 'profile' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-3 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5">
         <i class="fa-solid fa-user-gear"></i>
