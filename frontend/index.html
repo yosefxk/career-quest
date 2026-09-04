@@ -77,8 +77,8 @@
         <span x-show="jobs.length > 0" class="ml-1 px-1.5 py-0.2 rounded-full bg-brand-500 text-slate-950 font-bold text-[10px]" x-text="jobs.length"></span>
       </button>
       <button @click="activeView = 'copilot'" :class="activeView === 'copilot' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-3 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5 relative">
-        <i class="fa-solid fa-comments text-amber-300"></i>
-        <span>Copilot</span>
+        <i class="fa-solid fa-user-tie text-emerald-300"></i>
+        <span>Career Coach</span>
         <span x-show="directives.length > 0" class="ml-1 px-1.5 py-0.2 rounded-full bg-emerald-500 text-slate-950 font-bold text-[9px]" x-text="directives.filter(d => d.is_active).length" title="Active Learned Directives"></span>
       </button>
       <button @click="activeView = 'profile'" :class="activeView === 'profile' ? 'bg-brand-600 text-white font-bold shadow' : 'text-slate-400 hover:text-white'" class="px-3 sm:px-4 py-1.5 rounded-xl transition flex items-center gap-1.5">
@@ -402,7 +402,7 @@
               </div>
               <div>
                 <h3 class="text-sm font-bold text-white flex items-center gap-2">
-                  <span>AI Copilot & Career Strategist</span>
+                  <span>Career Coach & Advisor</span>
                   <span class="px-2 py-0.2 rounded-full bg-surface-800 text-brand-400 text-[10px] font-mono" x-text="systemStatus.ai_model || 'AI Ready'"></span>
                 </h3>
                 <p class="text-[11px] text-slate-400" x-text="focusedJobId ? `Focused on: ${getFocusedJob()?.company} — ${getFocusedJob()?.title}` : 'Grounded in Master Profile & Active Pipeline'"></p>
@@ -479,7 +479,7 @@
                 <span class="w-2 h-2 rounded-full bg-brand-400 animate-bounce"></span>
                 <span class="w-2 h-2 rounded-full bg-brand-400 animate-bounce [animation-delay:0.2s]"></span>
                 <span class="w-2 h-2 rounded-full bg-brand-400 animate-bounce [animation-delay:0.4s]"></span>
-                <span class="text-[11px] ml-1">Copilot is thinking...</span>
+                <span class="text-[11px] ml-1">Career Coach is thinking...</span>
               </div>
             </div>
 
@@ -665,8 +665,8 @@
         </div>
 
         <div class="flex items-center gap-2">
-          <button @click="askCopilotAboutJob(selectedJob)" class="px-2.5 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-300 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition" title="Ask AI Copilot about this role">
-            <i class="fa-solid fa-wand-magic-sparkles text-xs"></i> <span>Ask Copilot</span>
+          <button @click="askCopilotAboutJob(selectedJob)" class="px-2.5 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-300 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition" title="Ask Career Coach about this role">
+            <i class="fa-solid fa-user-tie text-xs"></i> <span>Ask Coach</span>
           </button>
           <button @click="freezeApplicationSnapshot()" class="px-3 py-1.5 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-xs font-bold flex items-center gap-1.5 active:scale-95 transition">
             <i class="fa-solid fa-camera"></i> <span>Snapshot & Apply</span>
@@ -933,14 +933,14 @@ function careerQuestApp() {
     // Copilot Methods
     async fetchDirectives() {
       try {
-        const res = await fetch('/api/v1/copilot/directives');
+        const res = await fetch('/api/v1/coach/directives');
         if (res.ok) this.directives = await res.json();
       } catch (e) { console.error(e); }
     },
 
     async fetchCopilotMessages() {
       try {
-        const res = await fetch('/api/v1/copilot/messages');
+        const res = await fetch('/api/v1/coach/messages');
         if (res.ok) {
           this.copilotMessages = await res.json();
           this.scrollChatToBottom();
@@ -962,7 +962,7 @@ function careerQuestApp() {
       this.scrollChatToBottom();
 
       try {
-        const res = await fetch('/api/v1/copilot/chat', {
+        const res = await fetch('/api/v1/coach/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -994,7 +994,7 @@ function careerQuestApp() {
       } catch (e) {
         this.copilotMessages.push({
           role: 'assistant',
-          content: 'Error connecting to the Copilot server.',
+          content: 'Error connecting to the Career Coach server.',
           created_at: new Date().toISOString()
         });
       } finally {
@@ -1025,7 +1025,7 @@ function careerQuestApp() {
 
     async clearChatMessages() {
       try {
-        await fetch('/api/v1/copilot/messages', { method: 'DELETE' });
+        await fetch('/api/v1/coach/messages', { method: 'DELETE' });
         this.copilotMessages = [];
         this.showToast('Chat history cleared.');
       } catch (e) { console.error(e); }
@@ -1034,7 +1034,7 @@ function careerQuestApp() {
     async createDirective() {
       if (!this.newDirectiveText.trim()) return;
       try {
-        const res = await fetch('/api/v1/copilot/directives', {
+        const res = await fetch('/api/v1/coach/directives', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1054,7 +1054,7 @@ function careerQuestApp() {
     async toggleDirective(d) {
       d.is_active = !d.is_active;
       try {
-        await fetch(`/api/v1/copilot/directives/${d.id}`, {
+        await fetch(`/api/v1/coach/directives/${d.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ is_active: d.is_active })
@@ -1065,7 +1065,7 @@ function careerQuestApp() {
 
     async deleteDirective(id) {
       try {
-        await fetch(`/api/v1/copilot/directives/${id}`, { method: 'DELETE' });
+        await fetch(`/api/v1/coach/directives/${id}`, { method: 'DELETE' });
         await this.fetchDirectives();
         this.showToast('Directive removed.');
       } catch (e) { console.error(e); }

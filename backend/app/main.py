@@ -37,7 +37,8 @@ app.include_router(digest.router)
 app.include_router(tailor.router)
 app.include_router(ats.router)
 app.include_router(intel.router)
-app.include_router(copilot.router)
+app.include_router(copilot.router, prefix="/api/v1/coach")
+app.include_router(copilot.router, prefix="/api/v1/copilot")
 
 @app.get("/api/health")
 def health_check():

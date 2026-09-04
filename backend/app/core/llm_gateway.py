@@ -40,7 +40,7 @@ class LLMGateway:
     def chat(self, messages: List[Dict[str, str]], system_prompt: Optional[str] = None, timeout: float = 45.0) -> Optional[str]:
         if not self.api_key and self.provider != "ollama":
             logger.warning(f"No API Key configured for AI provider: {self.provider}")
-            return "I am your CareerQuest AI Copilot. To enable live conversational intelligence, configure your AI API key in Settings or your .env file."
+            return "I am your CareerQuest Career Coach. To enable live conversational intelligence, configure your AI API key in Settings or your .env file."
 
         try:
             if self.provider == "gemini":

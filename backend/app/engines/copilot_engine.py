@@ -119,7 +119,7 @@ Tailored Summary: {focused_job.get('custom_summary', 'None')}
 Job Description Snippet: {focused_job.get('job_description', '')[:1200]}
 """
 
-    return f"""You are CareerQuest AI Copilot, an elite executive career strategist, ATS resume specialist, and technical interview advisor.
+    return f"""You are CareerQuest Career Coach, an elite executive career strategist, ATS resume specialist, and technical interview advisor.
 You are collaborating directly with candidate {cand_name} ({tagline}).
 
 CANDIDATE BACKGROUND & SKILLS:

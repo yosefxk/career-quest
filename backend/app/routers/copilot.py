@@ -10,7 +10,7 @@ from app.engines.copilot_engine import (
     get_active_directives
 )
 
-router = APIRouter(prefix="/api/v1/copilot", tags=["copilot"])
+router = APIRouter(tags=["career_coach"])
 
 class ChatRequest(BaseModel):
     message: str
