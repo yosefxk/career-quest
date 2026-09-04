@@ -18,10 +18,11 @@ class Settings(BaseSettings):
     AI_MODEL: str = os.getenv("AI_MODEL", "gemini-3.6-flash")
     
     # Custom endpoints for local/proxy providers
-    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://host.docker.internal:11434")
     OPENAI_BASE_URL: str = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
     ANTHROPIC_BASE_URL: str = os.getenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com/v1")
     GROQ_BASE_URL: str = os.getenv("GROQ_BASE_URL", "https://api.groq.com/openai/v1")
+    LOCAL_LLM_BASE_URL: str = os.getenv("LOCAL_LLM_BASE_URL", "http://host.docker.internal:1234/v1")
     
     # Optional Cloud & Local Backups
     S3_BUCKET: str = os.getenv("S3_BUCKET", "")

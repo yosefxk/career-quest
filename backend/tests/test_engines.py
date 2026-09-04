@@ -79,3 +79,44 @@ def test_ats_compliance_auditor(sample_profile):
     assert audit["ats_score"] >= 80
     assert audit["status"] in ["PASS", "WARNING"]
     assert len(audit["checks"]) >= 4
+
+def test_llm_gateway_multi_provider(monkeypatch):
+    from app.core.llm_gateway import LLMGateway
+    
+    # 1. Test Local Ollama Provider (no API key required)
+    gw_ollama = LLMGateway()
+    gw_ollama.provider = "ollama"
+    gw_ollama.api_key = ""
+    gw_ollama.model = "llama3.1"
+    
+    assert gw_ollama._is_local_provider() is True
+    
+    # Mock httpx call for ollama generate
+    class FakeResponse:
+        status_code = 200
+        def json(self):
+            return {"response": '{"summary": "Local Ollama Test"}'}
+            
+    import httpx
+    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **kwargs: FakeResponse())
+    
+    res = gw_ollama.generate_json("Test prompt")
+    assert res == {"summary": "Local Ollama Test"}
+
+    # 2. Test Local OpenAI-compatible Provider (LM Studio / vLLM)
+    gw_local = LLMGateway()
+    gw_local.provider = "local"
+    gw_local.api_key = ""
+    gw_local.model = "qwen2.5-coder-7b"
+    assert gw_local._is_local_provider() is True
+    assert "1234" in gw_local._get_openai_compatible_base_url()
+
+    class FakeOpenAIResponse:
+        status_code = 200
+        def json(self):
+            return {"choices": [{"message": {"content": '{"level": "Senior"}'}}]}
+
+    monkeypatch.setattr(httpx.Client, "post", lambda self, url, **kwargs: FakeOpenAIResponse())
+    res_local = gw_local.generate_json("Test local")
+    assert res_local == {"level": "Senior"}
+

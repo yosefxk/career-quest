@@ -6,25 +6,57 @@ from app.core.config import settings
 
 logger = logging.getLogger("career_quest.llm")
 
+DEFAULT_MODELS = {
+    "gemini": "gemini-2.5-flash",
+    "openai": "gpt-4o-mini",
+    "anthropic": "claude-3-5-sonnet-20241022",
+    "groq": "llama-3.3-70b-versatile",
+    "ollama": "llama3.1",
+    "local": "local-model",
+    "lmstudio": "local-model",
+    "vllm": "local-model",
+    "localai": "local-model"
+}
+
+LOCAL_PROVIDERS = {"ollama", "local", "lmstudio", "vllm", "localai"}
+
 class LLMGateway:
     """
     Unified Multi-Provider AI Gateway.
-    Supports: Google Gemini, OpenAI, Anthropic Claude, Groq, and local Ollama.
+    Supports: Google Gemini, OpenAI, Anthropic Claude, Groq, local Ollama,
+    and any local OpenAI-compatible server (LM Studio, vLLM, LocalAI).
     """
     def __init__(self):
+        import os
         self.provider = settings.AI_PROVIDER
         self.api_key = settings.AI_API_KEY
-        self.model = settings.AI_MODEL
+        explicit_model = os.getenv("AI_MODEL")
+        if explicit_model:
+            self.model = explicit_model
+        elif self.provider == "gemini" and os.getenv("GEMINI_MODEL"):
+            self.model = os.getenv("GEMINI_MODEL")
+        else:
+            self.model = DEFAULT_MODELS.get(self.provider, settings.AI_MODEL)
+
+    def _is_local_provider(self) -> bool:
+        return self.provider in LOCAL_PROVIDERS
+
+    def _get_openai_compatible_base_url(self) -> str:
+        if self.provider == "groq":
+            return settings.GROQ_BASE_URL
+        if self.provider in ["local", "lmstudio", "vllm", "localai"]:
+            return settings.LOCAL_LLM_BASE_URL or settings.OPENAI_BASE_URL
+        return settings.OPENAI_BASE_URL
 
     def generate(self, prompt: str, system_prompt: Optional[str] = None, response_json: bool = False, timeout: float = 35.0) -> Optional[str]:
-        if not self.api_key and self.provider != "ollama":
+        if not self.api_key and not self._is_local_provider():
             logger.warning(f"No API Key configured for AI provider: {self.provider}")
             return None
 
         try:
             if self.provider == "gemini":
                 return self._call_gemini(prompt, system_prompt, response_json, timeout)
-            elif self.provider == "openai" or self.provider == "groq":
+            elif self.provider in ["openai", "groq", "local", "lmstudio", "vllm", "localai"]:
                 return self._call_openai_compatible(prompt, system_prompt, response_json, timeout)
             elif self.provider == "anthropic":
                 return self._call_anthropic(prompt, system_prompt, response_json, timeout)
@@ -38,14 +70,14 @@ class LLMGateway:
             return None
 
     def chat(self, messages: List[Dict[str, str]], system_prompt: Optional[str] = None, timeout: float = 45.0) -> Optional[str]:
-        if not self.api_key and self.provider != "ollama":
+        if not self.api_key and not self._is_local_provider():
             logger.warning(f"No API Key configured for AI provider: {self.provider}")
             return "I am your CareerQuest Career Coach. To enable live conversational intelligence, configure your AI API key in Settings or your .env file."
 
         try:
             if self.provider == "gemini":
                 return self._chat_gemini(messages, system_prompt, timeout)
-            elif self.provider == "openai" or self.provider == "groq":
+            elif self.provider in ["openai", "groq", "local", "lmstudio", "vllm", "localai"]:
                 return self._chat_openai_compatible(messages, system_prompt, timeout)
             elif self.provider == "anthropic":
                 return self._chat_anthropic(messages, system_prompt, timeout)
@@ -81,12 +113,15 @@ class LLMGateway:
                 return None
 
     def _call_openai_compatible(self, prompt: str, system_prompt: Optional[str], response_json: bool, timeout: float) -> Optional[str]:
-        base_url = settings.GROQ_BASE_URL if self.provider == "groq" else settings.OPENAI_BASE_URL
-        url = f"{base_url}/chat/completions"
+        base_url = self._get_openai_compatible_base_url()
+        url = f"{base_url.rstrip('/')}/chat/completions"
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}"
         }
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        elif self._is_local_provider():
+            headers["Authorization"] = "Bearer dummy"
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
@@ -191,12 +226,15 @@ class LLMGateway:
                 return None
 
     def _chat_openai_compatible(self, messages: list, system_prompt: Optional[str], timeout: float) -> Optional[str]:
-        base_url = settings.GROQ_BASE_URL if self.provider == "groq" else settings.OPENAI_BASE_URL
-        url = f"{base_url}/chat/completions"
+        base_url = self._get_openai_compatible_base_url()
+        url = f"{base_url.rstrip('/')}/chat/completions"
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}"
         }
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        elif self._is_local_provider():
+            headers["Authorization"] = "Bearer dummy"
         formatted = []
         if system_prompt:
             formatted.append({"role": "system", "content": system_prompt})
