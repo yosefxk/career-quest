@@ -1,10 +1,6 @@
 services:
   career-quest:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: career-quest:latest
-    pull_policy: build
+    image: ghcr.io/yosefxk/career-quest:latest
     container_name: career-quest
     restart: unless-stopped
     ports:
@@ -25,9 +21,6 @@ services:
       - "host.docker.internal:host-gateway"
     volumes:
       - ${DATA_PATH:-/home/yosef/projects/career-quest/data}:/app/data
-      - ./backend/app:/app/app
-      - ./backend/tests:/app/tests
-      - ./frontend:/app/frontend
       - /mnt/smb/server_backup:/mnt/smb_backup
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
