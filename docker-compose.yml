@@ -7,10 +7,11 @@ services:
     container_name: career-quest
     restart: unless-stopped
     ports:
-      - "${PORT:-8099}:8000"
+      - "${PORT:-8095}:8000"
     environment:
       - DATA_DIR=/app/data
       - CVS_DIR=/app/data/CVs
+      - BACKUP_DIR=${BACKUP_DIR:-/mnt/smb_backup/career_vault}
       - AI_PROVIDER=${AI_PROVIDER:-gemini}
       - AI_API_KEY=${AI_API_KEY}
       - AI_MODEL=${AI_MODEL:-gemini-3.6-flash}
@@ -22,10 +23,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ./data:/app/data
-      - ./backend/app:/app/app
-      - ./backend/tests:/app/tests
-      - ./frontend:/app/frontend
+      - ${DATA_PATH:-/home/yosef/projects/career-quest/data}:/app/data
+      - /mnt/smb/server_backup:/mnt/smb_backup
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
