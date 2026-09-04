@@ -7,7 +7,7 @@ from app.core.config import settings
 logger = logging.getLogger("career_quest.llm")
 
 DEFAULT_MODELS = {
-    "gemini": "gemini-2.5-flash",
+    "gemini": "gemini-3.7-flash",
     "openai": "gpt-4o-mini",
     "anthropic": "claude-3-5-sonnet-20241022",
     "groq": "llama-3.3-70b-versatile",
@@ -108,9 +108,9 @@ class LLMGateway:
             resp = client.post(url, headers=headers, json=payload)
             if resp.status_code == 200:
                 return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-            elif resp.status_code in [429, 503] and self.model != "gemini-2.5-flash":
-                logger.warning(f"Gemini {self.model} returned {resp.status_code}. Retrying with gemini-2.5-flash...")
-                fallback_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+            elif resp.status_code in [429, 503] and self.model != "gemini-3.6-flash":
+                logger.warning(f"Gemini {self.model} returned {resp.status_code}. Retrying with gemini-3.6-flash...")
+                fallback_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
                 resp2 = client.post(fallback_url, headers=headers, json=payload)
                 if resp2.status_code == 200:
                     return resp2.json()["candidates"][0]["content"]["parts"][0]["text"]
@@ -229,9 +229,9 @@ class LLMGateway:
             resp = client.post(url, headers=headers, json=payload)
             if resp.status_code == 200:
                 return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-            elif resp.status_code in [429, 503] and self.model != "gemini-2.5-flash":
-                logger.warning(f"Gemini {self.model} returned {resp.status_code}. Retrying with gemini-2.5-flash...")
-                fallback_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+            elif resp.status_code in [429, 503] and self.model != "gemini-3.6-flash":
+                logger.warning(f"Gemini {self.model} returned {resp.status_code}. Retrying with gemini-3.6-flash...")
+                fallback_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
                 resp2 = client.post(fallback_url, headers=headers, json=payload)
                 if resp2.status_code == 200:
                     return resp2.json()["candidates"][0]["content"]["parts"][0]["text"]

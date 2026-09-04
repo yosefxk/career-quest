@@ -1445,7 +1445,7 @@
           </button>
           
           <button x-show="onboardingStep === 3" @click="completeOnboarding()" :disabled="onboardingLoading" class="px-6 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs shadow-lg shadow-brand-500/25 transition flex items-center gap-2 disabled:opacity-50">
-            <i class="fa-solid fa-check" :class="onboardingLoading ? 'animate-spin' : ''"></i>
+            <i :class="onboardingLoading ? 'fa-solid fa-spinner animate-spin' : 'fa-solid fa-check'"></i>
             <span x-text="onboardingLoading ? 'Saving Profile...' : 'Complete & Launch'"></span>
           </button>
         </div>
@@ -1667,58 +1667,92 @@ function careerQuestApp() {
     },
 
     async completeOnboarding() {
+      if (!this.onboardingForm.full_name.trim()) {
+        this.showToast('Please enter your full name to proceed.');
+        this.onboardingStep = 1;
+        return;
+      }
       this.onboardingLoading = true;
       try {
+        let parsedData = null;
+
+        // If file selected, upload and parse
         if (this.onboardingCvFile) {
-          const formData = new FormData();
-          formData.append('file', this.onboardingCvFile);
-          const uploadRes = await fetch('/api/v1/profile/upload', {
-            method: 'POST',
-            body: formData
-          });
-          if (uploadRes.ok) {
-            const data = await uploadRes.json();
-            if (data.parsed) {
-              await fetch('/api/v1/profile/commit', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ profile_data: data.parsed })
-              });
+          try {
+            const formData = new FormData();
+            formData.append('file', this.onboardingCvFile);
+            const uploadRes = await fetch('/api/v1/profile/upload', {
+              method: 'POST',
+              body: formData
+            });
+            if (uploadRes.ok) {
+              const data = await uploadRes.json();
+              parsedData = data.parsed;
+            } else {
+              const errData = await uploadRes.json().catch(() => ({}));
+              this.showToast(errData.detail || 'Could not parse CV. Continuing with identity and targets...');
             }
+          } catch (uploadErr) {
+            console.warn('CV upload error:', uploadErr);
           }
         } else if (this.onboardingForm.cvText && this.onboardingForm.cvText.trim()) {
-          const parseRes = await fetch('/api/v1/profile/parse-text', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ raw_text: this.onboardingForm.cvText })
-          });
-          if (parseRes.ok) {
-            const data = await parseRes.json();
-            if (data.parsed) {
-              await fetch('/api/v1/profile/commit', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ profile_data: data.parsed })
-              });
+          try {
+            const parseRes = await fetch('/api/v1/profile/parse-text', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ raw_text: this.onboardingForm.cvText })
+            });
+            if (parseRes.ok) {
+              const data = await parseRes.json();
+              parsedData = data.parsed;
             }
+          } catch (parseErr) {
+            console.warn('CV text parse error:', parseErr);
           }
         }
 
         const roles = this.onboardingForm.roles.split(',').map(s => s.trim()).filter(Boolean);
         const locations = this.onboardingForm.locations.split(',').map(s => s.trim()).filter(Boolean);
+        const preferences = {
+          target_roles: roles.length > 0 ? roles : ["Software Engineer"],
+          target_locations: locations.length > 0 ? locations : ["Remote"],
+          remote_only: this.onboardingForm.remote_only,
+          include_linkedin: this.onboardingForm.include_linkedin
+        };
 
+        if (parsedData) {
+          // Merge manual onboarding overrides into parsed resume
+          if (this.onboardingForm.full_name.trim()) parsedData.full_name = this.onboardingForm.full_name.trim();
+          if (this.onboardingForm.email.trim()) parsedData.email = this.onboardingForm.email.trim();
+          if (this.onboardingForm.location.trim()) parsedData.location = this.onboardingForm.location.trim();
+          if (this.onboardingForm.tagline.trim()) parsedData.tagline = this.onboardingForm.tagline.trim();
+          parsedData.preferences = preferences;
+
+          const commitRes = await fetch('/api/v1/profile/commit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ profile_data: parsedData })
+          });
+
+          if (commitRes.ok) {
+            const commitJson = await commitRes.json();
+            this.profile = commitJson.profile;
+            this.locationsInput = (this.profile.preferences?.target_locations || []).join(', ');
+            this.rolesInput = (this.profile.preferences?.target_roles || []).join(', ');
+            this.modals.onboarding = false;
+            this.showToast(`Welcome, ${this.profile.full_name}! Resume parsed & profile ready.`);
+            return;
+          }
+        }
+
+        // Direct profile update if no resume or commit fallback
         const updatePayload = {
           is_onboarded: true,
           full_name: this.onboardingForm.full_name.trim(),
           email: this.onboardingForm.email.trim(),
           location: this.onboardingForm.location.trim(),
           tagline: this.onboardingForm.tagline.trim(),
-          preferences: {
-            target_roles: roles.length > 0 ? roles : ["Software Engineer"],
-            target_locations: locations.length > 0 ? locations : ["Remote"],
-            remote_only: this.onboardingForm.remote_only,
-            include_linkedin: this.onboardingForm.include_linkedin
-          }
+          preferences: preferences
         };
 
         const res = await fetch('/api/v1/profile', {
@@ -1733,6 +1767,8 @@ function careerQuestApp() {
           this.rolesInput = (this.profile.preferences?.target_roles || []).join(', ');
           this.modals.onboarding = false;
           this.showToast(`Welcome, ${this.profile.full_name}! Profile configured successfully.`);
+        } else {
+          this.showToast('Could not save profile. Please check server logs.');
         }
       } catch (err) {
         console.error(err);

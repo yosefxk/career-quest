@@ -226,25 +226,32 @@ def commit_profile_update(req: CommitProfileRequest):
     cursor = conn.cursor()
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     
-    cursor.execute("""
-    UPDATE candidate_profiles SET
-        is_onboarded = 1,
-        full_name = ?,
-        email = ?,
-        phone = ?,
-        location = ?,
-        citizenship = ?,
-        linkedin_url = ?,
-        github_url = ?,
-        portfolio_url = ?,
-        tagline = ?,
-        archetypes_json = ?,
-        experience_json = ?,
-        education_json = ?,
-        skills_json = ?,
-        updated_at = ?
-    WHERE is_active = 1
-    """, (
+    pref_val = None
+    if "preferences" in parsed and parsed["preferences"]:
+        if hasattr(parsed["preferences"], "model_dump"):
+            pref_val = json.dumps(parsed["preferences"].model_dump())
+        elif isinstance(parsed["preferences"], dict):
+            pref_val = json.dumps(parsed["preferences"])
+        elif isinstance(parsed["preferences"], str):
+            pref_val = parsed["preferences"]
+
+    fields = [
+        "is_onboarded = 1",
+        "full_name = ?",
+        "email = ?",
+        "phone = ?",
+        "location = ?",
+        "citizenship = ?",
+        "linkedin_url = ?",
+        "github_url = ?",
+        "portfolio_url = ?",
+        "tagline = ?",
+        "archetypes_json = ?",
+        "experience_json = ?",
+        "education_json = ?",
+        "skills_json = ?"
+    ]
+    vals = [
         parsed.get("full_name", "Candidate Name"),
         parsed.get("email", "email@example.com"),
         parsed.get("phone", ""),
@@ -257,9 +264,16 @@ def commit_profile_update(req: CommitProfileRequest):
         json.dumps(parsed.get("archetypes", {})),
         json.dumps(parsed.get("experience", [])),
         json.dumps(parsed.get("education", [])),
-        json.dumps(parsed.get("skills", {})),
-        now_str
-    ))
+        json.dumps(parsed.get("skills", {}))
+    ]
+    if pref_val:
+        fields.append("preferences_json = ?")
+        vals.append(pref_val)
+
+    fields.append("updated_at = ?")
+    vals.append(now_str)
+
+    cursor.execute(f"UPDATE candidate_profiles SET {', '.join(fields)} WHERE is_active = 1", vals)
     conn.commit()
     cursor.execute("SELECT * FROM candidate_profiles WHERE is_active = 1 LIMIT 1")
     row = cursor.fetchone()
