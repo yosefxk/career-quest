@@ -6,10 +6,53 @@ import httpx
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Generator, Dict, Any, List, Optional
+import html
 from bs4 import BeautifulSoup
 from app.core.config import settings
 from app.core.llm_gateway import llm
 from app.core.database import get_db
+
+def extract_yoe_from_text(text: Optional[str]) -> Optional[tuple[int, int, str]]:
+    """Extracts required Years of Experience (YOE) from job description HTML or text.
+    Returns (yoe_min, yoe_max, yoe_display) if found, else None.
+    """
+    if not text:
+        return None
+    raw = html.unescape(text)
+    clean = BeautifulSoup(raw, "html.parser").get_text(" ")
+    clean = re.sub(r'\s+', ' ', clean)
+    
+    patterns = [
+        r'(\d{1,2})\s*(?:-|–|—|to)\s*(\d{1,2})\+?\s*(?:years?|yrs?)(?:\s+of)?(?:\s+relevant|\s+work|\s+technical|\s+practical|\s+professional|\s+industry)?(?:\s+experience|\s+exp)',
+        r'(\d{1,2})\+\s*(?:years?|yrs?)(?:\s+of)?(?:\s+relevant|\s+work|\s+technical|\s+practical|\s+professional|\s+industry)?(?:\s+experience|\s+exp)',
+        r'(?:minimum|at least|minimum of)\s*(\d{1,2})\+?\s*(?:years?|yrs?)(?:\s+of)?(?:\s+relevant|\s+work|\s+technical|\s+practical|\s+professional|\s+industry)?(?:\s+experience|\s+exp)?',
+        r'(\d{1,2})\s*(?:years?|yrs?)\s+of\s+(?:experience|relevant|work|practical|professional)',
+    ]
+    
+    found = []
+    for pat in patterns:
+        for m in re.finditer(pat, clean, re.I):
+            groups = [g for g in m.groups() if g]
+            if len(groups) == 2:
+                found.append((int(groups[0]), int(groups[1])))
+            elif len(groups) == 1:
+                val = int(groups[0])
+                found.append((val, val + 2))
+                
+    valid = [f for f in found if 1 <= f[0] <= 15]
+    if valid:
+        valid.sort(key=lambda x: x[0], reverse=True)
+        y_min, y_max = valid[0]
+        if y_min >= 8:
+            disp = f"{y_min}+ YOE (Senior / Staff / Leadership)"
+        elif y_min >= 5:
+            disp = f"{y_min}–{y_max} YOE (Senior IC)"
+        elif y_min <= 2:
+            disp = f"{y_min}–{y_max} YOE (Entry-Mid Level IC)"
+        else:
+            disp = f"{y_min}–{y_max} YOE (Mid-Level IC)"
+        return y_min, y_max, disp
+    return None
 
 TARGET_BOARDS = [
     # Autonomous Vehicles & Robotics
@@ -86,6 +129,26 @@ def fetch_linkedin_public_jobs(role_keyword: str, location_keyword: str, limit: 
                     link = link_elem['href'].split('?')[0] if link_elem and 'href' in link_elem.attrs else f"https://www.linkedin.com/jobs/search?keywords={encoded_role}"
                     
                     if title:
+                        job_desc_text = ""
+                        y_min, y_max, y_disp = 2, 8, "2–8 YOE"
+                        m_id = re.search(r'([0-9]{8,12})', link)
+                        if m_id:
+                            job_id = m_id.group(1)
+                            try:
+                                post_resp = client.get(f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}", timeout=4.0)
+                                if post_resp.status_code == 200:
+                                    post_soup = BeautifulSoup(post_resp.text, 'html.parser')
+                                    desc_div = post_soup.find('div', class_='description__text')
+                                    if desc_div:
+                                        job_desc_text = desc_div.get_text(separator=' ', strip=True)
+                                        yoe_res = extract_yoe_from_text(job_desc_text)
+                                        if yoe_res:
+                                            y_min, y_max, y_disp = yoe_res
+                            except Exception:
+                                pass
+
+                        snippet_text = (job_desc_text[:350] + "...") if job_desc_text else f"Active position for {title} at {comp} ({loc})."
+
                         found.append({
                             "company": comp,
                             "title": title,
@@ -95,10 +158,10 @@ def fetch_linkedin_public_jobs(role_keyword: str, location_keyword: str, limit: 
                             "url": link,
                             "source": f"LinkedIn ({location_keyword})",
                             "role_family": "Engineering",
-                            "yoe_min": 2,
-                            "yoe_max": 8,
-                            "yoe_display": "2–8 YOE",
-                            "snippet": f"Active position for {title} at {comp} ({loc}).",
+                            "yoe_min": y_min,
+                            "yoe_max": y_max,
+                            "yoe_display": y_disp,
+                            "snippet": snippet_text,
                             "posted_date": now.strftime("%Y-%m-%d")
                         })
     except Exception as e:
@@ -244,6 +307,11 @@ def stream_opportunity_scan(
                             if any(k in title_lower for k in active_search_keywords):
                                 loc_name = j.get("locationName", "Global / Remote") or "Global / Remote"
                                 job_url = j.get("jobUrl") or f"https://jobs.ashbyhq.com/{board_name}/{j.get('id')}"
+                                desc = j.get("descriptionHtml", "")
+                                y_min, y_max, y_disp = 3, 7, "3–7 YOE"
+                                yoe_res = extract_yoe_from_text(desc)
+                                if yoe_res:
+                                    y_min, y_max, y_disp = yoe_res
                                 found.append({
                                     "company": company_name,
                                     "title": title,
@@ -253,14 +321,14 @@ def stream_opportunity_scan(
                                     "url": job_url,
                                     "source": f"{company_name} Ashby",
                                     "role_family": "Engineering",
-                                    "yoe_min": 3,
-                                    "yoe_max": 7,
-                                    "yoe_display": "3–7 YOE",
+                                    "yoe_min": y_min,
+                                    "yoe_max": y_max,
+                                    "yoe_display": y_disp,
                                     "snippet": f"Active role at {company_name} ({loc_name}).",
                                     "posted_date": now.strftime("%Y-%m-%d")
                                 })
                 else:
-                    resp = client.get(f"https://boards-api.greenhouse.io/v1/boards/{board_name}/jobs")
+                    resp = client.get(f"https://boards-api.greenhouse.io/v1/boards/{board_name}/jobs?content=true")
                     if resp.status_code == 200:
                         data = resp.json()
                         for j in data.get("jobs", []):
@@ -269,6 +337,11 @@ def stream_opportunity_scan(
                             if any(k in title_lower for k in active_search_keywords):
                                 loc_name = j.get("location", {}).get("name", "Global / Remote") or "Global / Remote"
                                 job_url = j.get("absolute_url") or f"https://job-boards.greenhouse.io/{board_name}/jobs/{j.get('id')}"
+                                content = j.get("content", "")
+                                y_min, y_max, y_disp = 3, 7, "3–7 YOE"
+                                yoe_res = extract_yoe_from_text(content)
+                                if yoe_res:
+                                    y_min, y_max, y_disp = yoe_res
                                 found.append({
                                     "company": company_name,
                                     "title": title,
@@ -278,9 +351,9 @@ def stream_opportunity_scan(
                                     "url": job_url,
                                     "source": f"{company_name} Greenhouse",
                                     "role_family": "Engineering",
-                                    "yoe_min": 3,
-                                    "yoe_max": 7,
-                                    "yoe_display": "3–7 YOE",
+                                    "yoe_min": y_min,
+                                    "yoe_max": y_max,
+                                    "yoe_display": y_disp,
                                     "snippet": f"Active role at {company_name} ({loc_name}).",
                                     "posted_date": now.strftime("%Y-%m-%d")
                                 })
@@ -405,7 +478,7 @@ def stream_opportunity_scan(
                 item.get("role_family", "Engineering"),
                 item.get("yoe_min", 3),
                 item.get("yoe_max", 7),
-                item.get("yoe_display", "3–7 YOE"),
+                item.get("yoe_display", f"{item.get('yoe_min', 3)}–{item.get('yoe_max', 7)} YOE") if not item.get("yoe_display") or item.get("yoe_display") == "3–7 YOE" else item.get("yoe_display"),
                 item.get("snippet", ""),
                 item.get("posted_date", now_str[:10]),
                 item.get("in_pipeline", 0),
