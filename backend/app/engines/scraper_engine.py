@@ -463,10 +463,20 @@ def stream_opportunity_scan(
         
         now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         for item in evaluated:
+            y_min = item.get("yoe_min", 3)
+            is_senior = 1 if y_min >= 5 else 0
             cursor.execute("""
-            INSERT OR IGNORE INTO discovery_digest
+            INSERT INTO discovery_digest
             (job_key, company, title, location, region, category, url, source, salary_min, salary_max, salary_display, match_score, match_highlights, role_family, yoe_min, yoe_max, yoe_display, snippet, posted_date, in_pipeline, is_archived, interest_rating, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)
+            ON CONFLICT(job_key) DO UPDATE SET
+                yoe_min = excluded.yoe_min,
+                yoe_max = excluded.yoe_max,
+                yoe_display = excluded.yoe_display,
+                match_score = excluded.match_score,
+                match_highlights = excluded.match_highlights,
+                is_archived = CASE WHEN excluded.yoe_min >= 5 THEN 1 ELSE discovery_digest.is_archived END,
+                snippet = excluded.snippet
             """, (
                 item["job_key"],
                 item["company"],
@@ -488,6 +498,7 @@ def stream_opportunity_scan(
                 item.get("snippet", ""),
                 item.get("posted_date", now_str[:10]),
                 item.get("in_pipeline", 0),
+                is_senior,
                 now_str
             ))
         conn.commit()
