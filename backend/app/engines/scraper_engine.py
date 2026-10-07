@@ -105,6 +105,35 @@ UNIVERSAL_TARGET_KEYWORDS = [
     "security engineer", "cybersecurity", "appsec", "infosec", "qa engineer", "test engineer", "automation engineer"
 ]
 
+DISQUALIFYING_TITLE_KEYWORDS = [
+    "director", "engineering manager", "software engineering manager", "dev manager",
+    "development manager", "general manager", "people manager", "account manager",
+    "sales manager", "marketing manager", "product marketing manager", "hr manager",
+    "head of", "vp", "vice president", "principal", "staff",
+    "senior tpm", "lead tpm", "sr. tpm", "sr tpm", "principal tpm", "staff tpm",
+    "senior technical program manager", "lead technical program manager", "staff technical program manager",
+    "senior program manager", "lead program manager", "staff program manager", "principal program manager",
+    "senior project manager", "lead project manager", "senior data engineer", "lead data engineer",
+    "staff data engineer", "principal data engineer", "chief", "intern", "co-op"
+]
+
+def is_title_disqualified(title: str) -> bool:
+    if not title:
+        return True
+    tl = title.lower()
+    senior_prefixes = [
+        "senior", "sr.", "sr ", "lead", "staff", "principal", "director",
+        "head of", "vp", "vice president", "chief", "intern", "co-op"
+    ]
+    if any(sp in tl for sp in senior_prefixes):
+        return True
+    tl_cleaned = re.sub(r'\b[a-z0-9]+-[a-z0-9]+\b', ' ', tl)
+    if re.search(r'\b(iii|iv|v|vi)\b', tl_cleaned):
+        return True
+    if re.search(r'\b(level\s*[3-6]|ic[5-7]|l[5-7]|e[5-7])\b', tl_cleaned):
+        return True
+    return any(dq in tl for dq in DISQUALIFYING_TITLE_KEYWORDS)
+
 def fetch_linkedin_public_jobs(role_keyword: str, location_keyword: str, limit: int = 15) -> List[Dict[str, Any]]:
     """Fetches public, unauthenticated job cards from LinkedIn's guest jobs endpoint."""
     headers = {
@@ -135,16 +164,20 @@ def fetch_linkedin_public_jobs(role_keyword: str, location_keyword: str, limit: 
                     link = link_elem['href'].split('?')[0] if link_elem and 'href' in link_elem.attrs else f"https://www.linkedin.com/jobs/search?keywords={encoded_role}"
                     
                     if title:
+                        if is_title_disqualified(title):
+                            continue
                         job_desc_text = ""
-                        y_min, y_max, y_disp = 2, 8, "2–8 YOE"
+                        y_min, y_max, y_disp = None, None, "Unspecified YOE"
                         m_id = re.search(r'([0-9]{8,12})', link)
                         if m_id:
                             job_id = m_id.group(1)
                             try:
-                                post_resp = client.get(f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}", timeout=4.0)
+                                post_resp = client.get(f"https://www.linkedin.com/jobs-guest/jobs/api/jobPosting/{job_id}", timeout=8.0)
+                                if post_resp.status_code != 200:
+                                    post_resp = client.get(f"https://www.linkedin.com/jobs/view/{job_id}", timeout=8.0)
                                 if post_resp.status_code == 200:
                                     post_soup = BeautifulSoup(post_resp.text, 'html.parser')
-                                    desc_div = post_soup.find('div', class_='description__text')
+                                    desc_div = post_soup.find('div', class_='description__text') or post_soup.find('div', class_='show-more-less-html__markup')
                                     if desc_div:
                                         job_desc_text = desc_div.get_text(separator=' ', strip=True)
                                         yoe_res = extract_yoe_from_text(job_desc_text)
@@ -152,6 +185,15 @@ def fetch_linkedin_public_jobs(role_keyword: str, location_keyword: str, limit: 
                                             y_min, y_max, y_disp = yoe_res
                             except Exception:
                                 pass
+
+                        if not yoe_res:
+                            t_low = title.lower()
+                            if any(k in t_low for k in [" i ", " 1 ", "entry", "associate", "junior"]):
+                                y_min, y_max, y_disp = 1, 3, "1–3 YOE (Entry-Mid Level IC)"
+                            elif any(k in t_low for k in [" ii ", " 2 ", "mid"]):
+                                y_min, y_max, y_disp = 2, 4, "2–4 YOE (Mid-Level IC)"
+                            elif job_desc_text and not is_title_disqualified(title):
+                                y_min, y_max, y_disp = 2, 4, "2–4 YOE (Mid-Level IC)"
 
                         snippet_text = (job_desc_text[:350] + "...") if job_desc_text else f"Active position for {title} at {comp} ({loc})."
 
@@ -234,13 +276,19 @@ Output strictly JSON:
     output = []
     for idx, r in enumerate(roles):
         evaluated = eval_map.get(idx, {})
+        score = evaluated.get("match_score", 85)
+        y_min = r.get("yoe_min")
+        is_senior = 1 if (y_min is not None and y_min >= 5) else 0
+        if is_senior:
+            score = min(score, 45)
         output.append({
             **r,
-            "match_score": evaluated.get("match_score", 85),
+            "match_score": score,
             "salary_min": evaluated.get("salary_min", 0),
             "salary_max": evaluated.get("salary_max", 0),
             "salary_display": evaluated.get("salary_display", "Competitive Market Comp"),
-            "match_highlights": evaluated.get("match_highlights", ["High-fit technical position"])
+            "match_highlights": ["Requires senior/staff/leadership experience (5+ YoE) outside mid-level profile"] if is_senior else evaluated.get("match_highlights", ["High-fit technical position"]),
+            "is_archived": is_senior
         })
     return output
 
@@ -309,15 +357,19 @@ def stream_opportunity_scan(
                         data = resp.json()
                         for j in data.get("jobs", []):
                             title = j.get("title", "")
+                            if is_title_disqualified(title):
+                                continue
                             title_lower = title.lower()
                             if any(k in title_lower for k in active_search_keywords):
                                 loc_name = j.get("locationName", "Global / Remote") or "Global / Remote"
                                 job_url = j.get("jobUrl") or f"https://jobs.ashbyhq.com/{board_name}/{j.get('id')}"
                                 desc = j.get("descriptionHtml", "")
-                                y_min, y_max, y_disp = 3, 7, "3–7 YOE"
+                                y_min, y_max, y_disp = None, None, "Unspecified YOE"
                                 yoe_res = extract_yoe_from_text(desc)
                                 if yoe_res:
                                     y_min, y_max, y_disp = yoe_res
+                                elif not is_title_disqualified(title):
+                                    y_min, y_max, y_disp = 2, 4, "2–4 YOE (Mid-Level IC)"
                                 found.append({
                                     "company": company_name,
                                     "title": title,
@@ -339,15 +391,19 @@ def stream_opportunity_scan(
                         data = resp.json()
                         for j in data.get("jobs", []):
                             title = j.get("title", "")
+                            if is_title_disqualified(title):
+                                continue
                             title_lower = title.lower()
                             if any(k in title_lower for k in active_search_keywords):
                                 loc_name = j.get("location", {}).get("name", "Global / Remote") or "Global / Remote"
                                 job_url = j.get("absolute_url") or f"https://job-boards.greenhouse.io/{board_name}/jobs/{j.get('id')}"
                                 content = j.get("content", "")
-                                y_min, y_max, y_disp = 3, 7, "3–7 YOE"
+                                y_min, y_max, y_disp = None, None, "Unspecified YOE"
                                 yoe_res = extract_yoe_from_text(content)
                                 if yoe_res:
                                     y_min, y_max, y_disp = yoe_res
+                                elif not is_title_disqualified(title):
+                                    y_min, y_max, y_disp = 2, 4, "2–4 YOE (Mid-Level IC)"
                                 found.append({
                                     "company": company_name,
                                     "title": title,
@@ -402,8 +458,8 @@ def stream_opportunity_scan(
                 "message": f"Scanned {source_name} — found {len(roles)} matching positions"
             }
 
-    cursor.execute("SELECT job_key FROM discovery_digest")
-    existing_keys = {row[0] for row in cursor.fetchall()}
+    cursor.execute("SELECT job_key, yoe_min, is_archived FROM discovery_digest")
+    existing_records = {row[0]: (row[1], row[2]) for row in cursor.fetchall()}
     cursor.execute("SELECT company, title FROM jobs")
     pipeline_jobs = {(row[0].lower().strip(), row[1].lower().strip()) for row in cursor.fetchall()}
     learned_prefs = get_learned_preferences(conn)
@@ -417,9 +473,26 @@ def stream_opportunity_scan(
     unseen_jobs = []
     for j in discovered:
         key = hashlib.md5(f"{j['company']}_{j['title']}_{j['location']}".encode()).hexdigest()
-        if key not in existing_keys:
-            j["job_key"] = key
-            j["in_pipeline"] = 1 if (j['company'].lower().strip(), j['title'].lower().strip()) in pipeline_jobs else 0
+        j["job_key"] = key
+        j["in_pipeline"] = 1 if (j['company'].lower().strip(), j['title'].lower().strip()) in pipeline_jobs else 0
+        
+        if key in existing_records:
+            # Re-scan synchronization: if fresh scrape extracted explicit YOE (especially >= 5), update DB immediately
+            curr_yoe, curr_arch = existing_records[key]
+            new_yoe = j.get("yoe_min")
+            if new_yoe is not None and (curr_yoe != new_yoe or (new_yoe >= 5 and curr_arch == 0)):
+                cursor.execute("""
+                    UPDATE discovery_digest SET
+                        yoe_min = ?,
+                        yoe_max = ?,
+                        yoe_display = ?,
+                        is_archived = CASE WHEN ? >= 5 THEN 1 ELSE is_archived END,
+                        match_score = CASE WHEN ? >= 5 AND match_score > 50 THEN 45 ELSE match_score END,
+                        snippet = CASE WHEN LENGTH(?) > LENGTH(snippet) THEN ? ELSE snippet END
+                    WHERE job_key = ?
+                """, (new_yoe, j.get("yoe_max"), j.get("yoe_display"), new_yoe, new_yoe, j.get("snippet", ""), j.get("snippet", ""), key))
+                conn.commit()
+        else:
             unseen_jobs.append(j)
             
     yield {
@@ -463,8 +536,10 @@ def stream_opportunity_scan(
         
         now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
         for item in evaluated:
-            y_min = item.get("yoe_min", 3)
-            is_senior = 1 if y_min >= 5 else 0
+            y_min = item.get("yoe_min")
+            y_max = item.get("yoe_max")
+            y_disp = item.get("yoe_display") or ("2–4 YOE (Mid-Level IC)" if (y_min is not None and y_min <= 4) else "Unspecified YOE")
+            is_senior = 1 if ((y_min is not None and y_min >= 5) or item.get("is_archived") == 1) else 0
             cursor.execute("""
             INSERT INTO discovery_digest
             (job_key, company, title, location, region, category, url, source, salary_min, salary_max, salary_display, match_score, match_highlights, role_family, yoe_min, yoe_max, yoe_display, snippet, posted_date, in_pipeline, is_archived, interest_rating, created_at)
@@ -492,9 +567,9 @@ def stream_opportunity_scan(
                 item.get("match_score", 85),
                 json.dumps(item.get("match_highlights", [])),
                 item.get("role_family", "Engineering"),
-                item.get("yoe_min", 3),
-                item.get("yoe_max", 7),
-                item.get("yoe_display", f"{item.get('yoe_min', 3)}–{item.get('yoe_max', 7)} YOE") if not item.get("yoe_display") or item.get("yoe_display") == "3–7 YOE" else item.get("yoe_display"),
+                y_min,
+                y_max,
+                y_disp,
                 item.get("snippet", ""),
                 item.get("posted_date", now_str[:10]),
                 item.get("in_pipeline", 0),
