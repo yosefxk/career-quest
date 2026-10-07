@@ -23,10 +23,16 @@ def extract_yoe_from_text(text: Optional[str]) -> Optional[tuple[int, int, str]]
     clean = re.sub(r'\s+', ' ', clean)
     
     patterns = [
-        r'(\d{1,2})\s*(?:-|–|—|to)\s*(\d{1,2})\+?\s*(?:years?|yrs?)(?:\s+of)?(?:\s+relevant|\s+work|\s+technical|\s+practical|\s+professional|\s+industry)?(?:\s+experience|\s+exp)',
-        r'(\d{1,2})\+\s*(?:years?|yrs?)(?:\s+of)?(?:\s+relevant|\s+work|\s+technical|\s+practical|\s+professional|\s+industry)?(?:\s+experience|\s+exp)',
-        r'(?:minimum|at least|minimum of)\s*(\d{1,2})\+?\s*(?:years?|yrs?)(?:\s+of)?(?:\s+relevant|\s+work|\s+technical|\s+practical|\s+professional|\s+industry)?(?:\s+experience|\s+exp)?',
-        r'(\d{1,2})\s*(?:years?|yrs?)\s+of\s+(?:experience|relevant|work|practical|professional)',
+        # 1. Ranges: 8-10 years of ... experience
+        r'(\d{1,2})\s*(?:-|–|—|to)\s*(\d{1,2})\+?\s*(?:years?|yrs?)(?:\s+of)?(?:\s+[a-zA-Z\-/,\'\"]{1,25}){0,8}\s*(?:experience|exp)',
+        # 2. Plus: 8+ years of direct silicon engineering ... experience
+        r'(\d{1,2})\+\s*(?:years?|yrs?)(?:\s+of)?(?:\s+[a-zA-Z\-/,\'\"]{1,25}){0,8}\s*(?:experience|exp)',
+        # 3. Plus in: 10+ years in program/project management
+        r'(\d{1,2})\+\s*(?:years?|yrs?)\s+in\s+(?:[a-zA-Z\-/,\'\"]{1,25}\s*){1,6}',
+        # 4. Minimum: minimum 8 years of ... experience
+        r'(?:minimum|at least|minimum of)\s*(\d{1,2})\+?\s*(?:years?|yrs?)(?:\s+of)?(?:\s+[a-zA-Z\-/,\'\"]{1,25}){0,8}?\s*(?:experience|exp)?',
+        # 5. Standard: 8 years of direct ... experience
+        r'(\d{1,2})\s*(?:years?|yrs?)\s+of(?:\s+[a-zA-Z\-/,\'\"]{1,25}){0,8}\s*(?:experience|exp)',
     ]
     
     found = []
