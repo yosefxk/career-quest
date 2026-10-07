@@ -17,6 +17,7 @@ def get_digest(
     category: Optional[str] = "all",
     role_family: Optional[str] = "all",
     yoe: Optional[str] = "all",
+    seniority: Optional[str] = "mid",
     min_match: Optional[int] = 0,
     sort_by: Optional[str] = "match_desc",
     show_archived: Optional[bool] = False,
@@ -39,6 +40,30 @@ def get_digest(
         query_parts.append("interest_rating = -1")
     elif interest == "unrated":
         query_parts.append("interest_rating = 0")
+
+    if seniority == "mid":
+        # Strict mid-level filter: 1-4 YoE max, strictly exclude NULL/unknown, 5+ years, Senior/Staff/Leadership
+        query_parts.append("(yoe_min IS NOT NULL AND yoe_min <= 4)")
+        query_parts.append("(yoe_display NOT LIKE '%5+%' AND yoe_display NOT LIKE '%6+%' AND yoe_display NOT LIKE '%7+%' AND yoe_display NOT LIKE '%8+%' AND yoe_display NOT LIKE '%10+%' AND yoe_display NOT LIKE '%12+%' AND yoe_display NOT LIKE '%5–%' AND yoe_display NOT LIKE '%5-%' AND yoe_display NOT LIKE '%6–%' AND yoe_display NOT LIKE '%6-%' AND yoe_display NOT LIKE '%7–%' AND yoe_display NOT LIKE '%7-%' AND yoe_display NOT LIKE '%8–%' AND yoe_display NOT LIKE '%8-%' AND yoe_display NOT LIKE '%Senior%' AND yoe_display NOT LIKE '%Staff%' AND yoe_display NOT LIKE '%Leadership%')")
+        query_parts.append("match_score >= 80")
+        
+        # Disqualify senior, lead, staff, principal, management, and Roman numeral senior titles
+        query_parts.append("LOWER(title) NOT LIKE '%senior%'")
+        query_parts.append("LOWER(title) NOT LIKE '%sr.%'")
+        query_parts.append("LOWER(title) NOT LIKE '%sr %'")
+        query_parts.append("LOWER(title) NOT LIKE '%lead%'")
+        query_parts.append("LOWER(title) NOT LIKE '%staff%'")
+        query_parts.append("LOWER(title) NOT LIKE '%principal%'")
+        query_parts.append("LOWER(title) NOT LIKE '% iii%'")
+        query_parts.append("LOWER(title) NOT LIKE '%, iii%'")
+        query_parts.append("LOWER(title) NOT LIKE '% iv%'")
+        query_parts.append("(LOWER(title) NOT LIKE '%manager%' OR LOWER(title) LIKE '%program manager%' OR LOWER(title) LIKE '%product manager%' OR LOWER(title) LIKE '%project manager%' OR LOWER(title) LIKE '%operations manager%')")
+        query_parts.append("LOWER(title) NOT LIKE '%director%'")
+        query_parts.append("LOWER(title) NOT LIKE '%head of%'")
+        query_parts.append("LOWER(title) NOT LIKE '%vp %'")
+        query_parts.append("LOWER(title) NOT LIKE '%vice president%'")
+    elif seniority == "senior":
+        query_parts.append("(yoe_min >= 5 OR yoe_display LIKE '%Senior%' OR yoe_display LIKE '%Staff%' OR yoe_display LIKE '%Leadership%' OR yoe_display LIKE '%5+%' OR yoe_display LIKE '%8+%')")
         
     if region and region != "all":
         query_parts.append("region = ?")
