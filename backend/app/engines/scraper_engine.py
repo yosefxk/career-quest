@@ -12,40 +12,58 @@ from app.core.config import settings
 from app.core.llm_gateway import llm
 from app.core.database import get_db
 
-def extract_yoe_from_text(text: Optional[str]) -> Optional[tuple[int, int, str]]:
+def extract_yoe_from_text(text: Optional[str], title: Optional[str] = None) -> Optional[tuple[int, int, str]]:
     """Extracts required Years of Experience (YOE) from job description HTML or text.
+    Handles wide syntactic variations, possessives, word numerals, leading/trailing plus signs,
+    modifiers (more than, over, at least), and title seniority semantics.
     Returns (yoe_min, yoe_max, yoe_display) if found, else None.
     """
-    if not text:
-        return None
-    raw = html.unescape(text)
-    clean = BeautifulSoup(raw, "html.parser").get_text(" ")
+    raw = html.unescape(text or "")
+    # Normalize unicode quotation marks and dashes
+    raw = raw.replace('’', "'").replace('‘', "'").replace('“', '"').replace('”', '"')
+    clean = BeautifulSoup(raw, "html.parser").get_text(" ") if raw else ""
     clean = re.sub(r'\s+', ' ', clean)
-    
+
+    word_map = {
+        'one': '1', 'two': '2', 'three': '3', 'four': '4', 'five': '5',
+        'six': '6', 'seven': '7', 'eight': '8', 'nine': '9', 'ten': '10',
+        'twelve': '12', 'fifteen': '15'
+    }
+    num_pat = r'(?:\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten|twelve|fifteen)'
+
+    def parse_num(n: str) -> int:
+        n_clean = n.lower().strip()
+        return int(word_map.get(n_clean, n_clean))
+
     patterns = [
-        # 1. Ranges: 8-10 years of ... experience
-        r'(\d{1,2})\s*(?:-|–|—|to)\s*(\d{1,2})\+?\s*(?:years?|yrs?)(?:\s+of)?(?:\s+[a-zA-Z\-/,\'\"]{1,25}){0,8}\s*(?:experience|exp)',
-        # 2. Plus: 8+ years of direct silicon engineering ... experience
-        r'(\d{1,2})\+\s*(?:years?|yrs?)(?:\s+of)?(?:\s+[a-zA-Z\-/,\'\"]{1,25}){0,8}\s*(?:experience|exp)',
-        # 3. Plus in: 10+ years in program/project management
-        r'(\d{1,2})\+\s*(?:years?|yrs?)\s+in\s+(?:[a-zA-Z\-/,\'\"]{1,25}\s*){1,6}',
-        # 4. Minimum: minimum 8 years of ... experience
-        r'(?:minimum|at least|minimum of)\s*(\d{1,2})\+?\s*(?:years?|yrs?)(?:\s+of)?(?:\s+[a-zA-Z\-/,\'\"]{1,25}){0,8}?\s*(?:experience|exp)?',
-        # 5. Standard: 8 years of direct ... experience
-        r'(\d{1,2})\s*(?:years?|yrs?)\s+of(?:\s+[a-zA-Z\-/,\'\"]{1,25}){0,8}\s*(?:experience|exp)',
+        # 1. Ranges: 8-10 years / 5 to 7 yrs of experience
+        rf'({num_pat})\s*(?:-|–|—|to)\s*({num_pat})\+?\s*(?:years?|\'s|yrs?)(?:\s+of)?(?:\s+[a-zA-Z\-/,\'\"]{{1,25}}){{0,15}}\s*(?:experience|exp)',
+        # 2. Leading plus: +5 years of project management / +8 yrs experience
+        rf'\+\s*({num_pat})\s*(?:years?|\'s|yrs?)(?:\s+of)?(?:\s+[a-zA-Z\-/,\'\"]{{1,25}}){{0,15}}\s*(?:experience|exp)',
+        # 3. Trailing plus: 8+ years of direct silicon engineering experience / 6+ yrs
+        rf'({num_pat})\s*\+\s*(?:years?|\'s|yrs?)(?:\s+of)?(?:\s+[a-zA-Z\-/,\'\"]{{1,25}}){{0,15}}\s*(?:experience|exp)',
+        # 4. Plus in domain: 10+ years in program/project management
+        rf'({num_pat})\s*\+\s*(?:years?|\'s|yrs?)\s+in\s+(?:[a-zA-Z\-/,\'\"]{{1,25}}\s*){{1,8}}',
+        # 5. Modifiers: more than 5 years' experience / at least 8 years / over 6 years
+        rf'(?:minimum|at least|minimum of|more than|over|exceeding|in excess of|greater than|no less than)\s*({num_pat})\+?\s*(?:years?|\'s|yrs?)(?:\s+of)?(?:\s+[a-zA-Z\-/,\'\"]{{1,25}}){{0,15}}?\s*(?:experience|exp)?',
+        # 6. Standard: 8 years of ... experience / 5 years' experience
+        rf'({num_pat})\s*(?:years?|\'s|yrs?)(?:\s+of)?(?:\s+[a-zA-Z\-/,\'\"]{{1,25}}){{0,15}}\s*(?:experience|exp)',
+        # 7. Unambiguous senior numbers: 5+ years / 8+ years anywhere in text
+        rf'\b([5-9]|1[0-5])\s*\+\s*(?:years?|yrs?|yoe)\b',
     ]
-    
+
     found = []
-    for pat in patterns:
-        for m in re.finditer(pat, clean, re.I):
-            groups = [g for g in m.groups() if g]
-            if len(groups) == 2:
-                found.append((int(groups[0]), int(groups[1])))
-            elif len(groups) == 1:
-                val = int(groups[0])
-                found.append((val, val + 2))
-                
-    valid = [f for f in found if 1 <= f[0] <= 15]
+    if clean:
+        for pat in patterns:
+            for m in re.finditer(pat, clean, re.I):
+                groups = [g for g in m.groups() if g]
+                if len(groups) == 2:
+                    found.append((parse_num(groups[0]), parse_num(groups[1])))
+                elif len(groups) == 1:
+                    val = parse_num(groups[0])
+                    found.append((val, val + 2))
+
+    valid = [f for f in found if 1 <= f[0] <= 25]
     if valid:
         valid.sort(key=lambda x: x[0], reverse=True)
         y_min, y_max = valid[0]
@@ -58,6 +76,19 @@ def extract_yoe_from_text(text: Optional[str]) -> Optional[tuple[int, int, str]]
         else:
             disp = f"{y_min}–{y_max} YOE (Mid-Level IC)"
         return y_min, y_max, disp
+
+    # Title level semantics fallback
+    if title:
+        t_low = title.lower()
+        if re.search(r'\b(staff|principal|director|head of|vp|vice president|chief|iv|v|vi|l6\+?|ic6\+?)\b', t_low):
+            return 8, 10, "8+ YOE (Senior / Staff / Leadership)"
+        if re.search(r'\b(senior|sr\.?|sr\s+|lead|iii|l5\+?|ic5\+?|level\s*3)\b', t_low):
+            return 5, 7, "5–7 YOE (Senior IC)"
+        if re.search(r'\b(associate|junior|entry|intern|co-op)\b', t_low):
+            return 1, 3, "1–3 YOE (Entry-Mid Level IC)"
+        if re.search(r'\b(ii|level\s*2|ic2)\b', t_low):
+            return 2, 4, "2–4 YOE (Mid-Level IC)"
+
     return None
 
 TARGET_BOARDS = [
@@ -180,7 +211,7 @@ def fetch_linkedin_public_jobs(role_keyword: str, location_keyword: str, limit: 
                                     desc_div = post_soup.find('div', class_='description__text') or post_soup.find('div', class_='show-more-less-html__markup')
                                     if desc_div:
                                         job_desc_text = desc_div.get_text(separator=' ', strip=True)
-                                        yoe_res = extract_yoe_from_text(job_desc_text)
+                                        yoe_res = extract_yoe_from_text(job_desc_text, title=title)
                                         if yoe_res:
                                             y_min, y_max, y_disp = yoe_res
                             except Exception:
@@ -191,8 +222,6 @@ def fetch_linkedin_public_jobs(role_keyword: str, location_keyword: str, limit: 
                             if any(k in t_low for k in [" i ", " 1 ", "entry", "associate", "junior"]):
                                 y_min, y_max, y_disp = 1, 3, "1–3 YOE (Entry-Mid Level IC)"
                             elif any(k in t_low for k in [" ii ", " 2 ", "mid"]):
-                                y_min, y_max, y_disp = 2, 4, "2–4 YOE (Mid-Level IC)"
-                            elif job_desc_text and not is_title_disqualified(title):
                                 y_min, y_max, y_disp = 2, 4, "2–4 YOE (Mid-Level IC)"
 
                         snippet_text = (job_desc_text[:350] + "...") if job_desc_text else f"Active position for {title} at {comp} ({loc})."
@@ -365,11 +394,9 @@ def stream_opportunity_scan(
                                 job_url = j.get("jobUrl") or f"https://jobs.ashbyhq.com/{board_name}/{j.get('id')}"
                                 desc = j.get("descriptionHtml", "")
                                 y_min, y_max, y_disp = None, None, "Unspecified YOE"
-                                yoe_res = extract_yoe_from_text(desc)
+                                yoe_res = extract_yoe_from_text(desc, title=title)
                                 if yoe_res:
                                     y_min, y_max, y_disp = yoe_res
-                                elif not is_title_disqualified(title):
-                                    y_min, y_max, y_disp = 2, 4, "2–4 YOE (Mid-Level IC)"
                                 found.append({
                                     "company": company_name,
                                     "title": title,
@@ -399,11 +426,9 @@ def stream_opportunity_scan(
                                 job_url = j.get("absolute_url") or f"https://job-boards.greenhouse.io/{board_name}/jobs/{j.get('id')}"
                                 content = j.get("content", "")
                                 y_min, y_max, y_disp = None, None, "Unspecified YOE"
-                                yoe_res = extract_yoe_from_text(content)
+                                yoe_res = extract_yoe_from_text(content, title=title)
                                 if yoe_res:
                                     y_min, y_max, y_disp = yoe_res
-                                elif not is_title_disqualified(title):
-                                    y_min, y_max, y_disp = 2, 4, "2–4 YOE (Mid-Level IC)"
                                 found.append({
                                     "company": company_name,
                                     "title": title,

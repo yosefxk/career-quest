@@ -117,7 +117,7 @@ def get_digest(
             "role_family": r["role_family"],
             "yoe_min": r["yoe_min"],
             "yoe_max": r["yoe_max"],
-            "yoe_display": r["yoe_display"],
+            "yoe_display": r["yoe_display"] or ("Unspecified YOE" if r["yoe_min"] is None else f"{r['yoe_min']}–{r['yoe_max']} YOE"),
             "snippet": r["snippet"],
             "posted_date": r["posted_date"],
             "in_pipeline": r["in_pipeline"],
