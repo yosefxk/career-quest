@@ -20,8 +20,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - ${DATA_PATH:-/home/yosef/projects/career-quest/data}:/app/data
-      - /mnt/smb/server_backup:/mnt/smb_backup
+      - ${DATA_PATH:-./data}:/app/data
+      - ${SMB_BACKUP_PATH:-./backups}:/mnt/smb_backup
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s

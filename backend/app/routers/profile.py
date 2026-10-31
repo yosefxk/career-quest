@@ -4,11 +4,13 @@ from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, UploadFile, File
+from app.core.config import settings
 from app.core.database import get_db
 from app.models.profile import CandidateProfile, ProfileUpdateRequest, CareerPreferences, TextIngestRequest, CommitProfileRequest
 from app.engines.job_analyzer import parse_uploaded_resume, parse_raw_resume_text
 
-BACKUPS_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "backups"
+BACKUPS_DIR = Path(settings.DATA_DIR) / "backups"
+MAX_UPLOAD_SIZE = 10 * 1024 * 1024
 
 router = APIRouter(prefix="/api/v1/profile", tags=["profile"])
 
@@ -101,27 +103,31 @@ def update_active_profile(update: ProfileUpdateRequest):
 
 def backup_profile_to_file() -> Optional[str]:
     conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM candidate_profiles WHERE is_active = 1 LIMIT 1")
-    row = cursor.fetchone()
-    conn.close()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM candidate_profiles WHERE is_active = 1 LIMIT 1")
+        row = cursor.fetchone()
+    finally:
+        conn.close()
     if not row:
         return None
     
-    BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    backups_dir = Path(settings.DATA_DIR) / "backups"
+    backups_dir.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
     backup_filename = f"profile_backup_{timestamp}.json"
-    dest_path = BACKUPS_DIR / backup_filename
+    dest_path = backups_dir / backup_filename
     data = dict(row)
     with open(dest_path, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
     return backup_filename
 
 def list_profile_backups() -> List[Dict[str, Any]]:
-    if not BACKUPS_DIR.exists():
+    backups_dir = Path(settings.DATA_DIR) / "backups"
+    if not backups_dir.exists():
         return []
     backups = []
-    for f in sorted(BACKUPS_DIR.glob("profile_backup_*.json"), key=os.path.getmtime, reverse=True):
+    for f in sorted(backups_dir.glob("profile_backup_*.json"), key=os.path.getmtime, reverse=True):
         stat = f.stat()
         backups.append({
             "filename": f.name,
@@ -132,52 +138,55 @@ def list_profile_backups() -> List[Dict[str, Any]]:
 
 def restore_profile_backup(filename: str) -> bool:
     safe_name = os.path.basename(filename)
-    target = BACKUPS_DIR / safe_name
+    backups_dir = Path(settings.DATA_DIR) / "backups"
+    target = backups_dir / safe_name
     if not target.exists():
         return False
     with open(target, "r", encoding="utf-8") as f:
         data = json.load(f)
     backup_profile_to_file()
     conn = get_db()
-    cursor = conn.cursor()
-    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute("""
-    UPDATE candidate_profiles SET
-        full_name = ?,
-        email = ?,
-        phone = ?,
-        location = ?,
-        citizenship = ?,
-        linkedin_url = ?,
-        github_url = ?,
-        portfolio_url = ?,
-        tagline = ?,
-        archetypes_json = ?,
-        experience_json = ?,
-        education_json = ?,
-        skills_json = ?,
-        preferences_json = ?,
-        updated_at = ?
-    WHERE is_active = 1
-    """, (
-        data.get("full_name"),
-        data.get("email"),
-        data.get("phone"),
-        data.get("location"),
-        data.get("citizenship"),
-        data.get("linkedin_url"),
-        data.get("github_url"),
-        data.get("portfolio_url"),
-        data.get("tagline"),
-        data.get("archetypes_json", "{}"),
-        data.get("experience_json", "[]"),
-        data.get("education_json", "[]"),
-        data.get("skills_json", "{}"),
-        data.get("preferences_json", "{}"),
-        now_str
-    ))
-    conn.commit()
-    conn.close()
+    try:
+        cursor = conn.cursor()
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute("""
+        UPDATE candidate_profiles SET
+            full_name = ?,
+            email = ?,
+            phone = ?,
+            location = ?,
+            citizenship = ?,
+            linkedin_url = ?,
+            github_url = ?,
+            portfolio_url = ?,
+            tagline = ?,
+            archetypes_json = ?,
+            experience_json = ?,
+            education_json = ?,
+            skills_json = ?,
+            preferences_json = ?,
+            updated_at = ?
+        WHERE is_active = 1
+        """, (
+            data.get("full_name"),
+            data.get("email"),
+            data.get("phone"),
+            data.get("location"),
+            data.get("citizenship"),
+            data.get("linkedin_url"),
+            data.get("github_url"),
+            data.get("portfolio_url"),
+            data.get("tagline"),
+            data.get("archetypes_json", "{}"),
+            data.get("experience_json", "[]"),
+            data.get("education_json", "[]"),
+            data.get("skills_json", "{}"),
+            data.get("preferences_json", "{}"),
+            now_str
+        ))
+        conn.commit()
+    finally:
+        conn.close()
     return True
 
 @router.post("/upload")
@@ -185,14 +194,30 @@ async def upload_and_parse_resume(file: UploadFile = File(...)):
     """
     Upload a resume file (PDF, DOCX, TXT, MD, YAML) to parse into structured candidate profile.
     """
+    filename = file.filename or "resume"
+    lower_fn = filename.lower()
+    if lower_fn.endswith(".doc") and not lower_fn.endswith(".docx"):
+        raise HTTPException(status_code=400, detail="Legacy .doc format is not supported. Please convert and upload as .docx or .pdf.")
+
     content = await file.read()
-    parsed = parse_uploaded_resume(content, file.filename)
+    if len(content) == 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if len(content) > MAX_UPLOAD_SIZE:
+        raise HTTPException(status_code=400, detail="File too large (maximum 10MB).")
+
+    try:
+        parsed = parse_uploaded_resume(content, filename)
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not parse resume: {e}")
+
     if not parsed:
         raise HTTPException(status_code=400, detail="Could not parse resume content with AI.")
         
     return {
         "status": "success",
-        "filename": file.filename,
+        "filename": filename,
         "extracted_chars": len(content),
         "parsed": parsed,
         "profile": parsed

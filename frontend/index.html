@@ -845,7 +845,7 @@
                   <template x-for="b in (exp.bullets || [])" :key="b.id">
                     <label class="flex items-start gap-2 p-1 rounded-lg hover:bg-surface-900 cursor-pointer">
                       <input type="checkbox" :checked="selectedBulletIds.includes(b.id)" @change="toggleBullet(b.id)" class="mt-0.5 rounded border-white/20 text-brand-500">
-                      <span class="text-[11px] text-slate-300 leading-snug" x-html="b.text"></span>
+                      <span class="text-[11px] text-slate-300 leading-snug" x-text="b.text"></span>
                     </label>
                   </template>
                 </div>
@@ -1144,7 +1144,7 @@
                     <ul class="space-y-1 pl-4 list-disc marker:text-brand-500 text-[11px] text-slate-300">
                       <template x-for="(b, bidx) in (exp.bullets || [])" :key="bidx">
                         <li class="leading-relaxed">
-                          <span x-html="b.text"></span>
+                          <span x-text="b.text"></span>
                           <span x-show="b.id" class="ml-1 text-[9px] font-mono text-slate-500" x-text="`[${b.id}]`"></span>
                         </li>
                       </template>
@@ -1224,7 +1224,7 @@
                     <div class="space-y-2">
                       <template x-for="(bullet, bidx) in (exp.bullets || [])" :key="bidx">
                         <div class="p-2.5 rounded-xl bg-surface-950/60 border border-white/5 text-[11px] text-slate-200 space-y-1.5">
-                          <p class="leading-relaxed" x-html="bullet.text"></p>
+                          <p class="leading-relaxed" x-text="bullet.text"></p>
                           <div class="flex flex-wrap items-center gap-1.5 pt-1">
                             <span x-show="bullet.id" class="px-1.5 py-0.5 rounded bg-brand-500/10 text-brand-300 text-[9px] font-mono" x-text="bullet.id"></span>
                             <template x-for="tag in (bullet.tags || [])" :key="tag">
@@ -1485,6 +1485,9 @@ function careerQuestApp() {
   return {
     activeView: 'discovery',
     mobileSidebarOpen: false,
+    dislikeModalOpen: false,
+    swipeDetailsOpen: false,
+    swipeCard: null,
     studioTab: 'cv',
     cvSubView: 'preview',
     profile: {
@@ -2378,6 +2381,48 @@ function careerQuestApp() {
       if (!text) return;
       navigator.clipboard.writeText(text);
       this.showToast('Copied to clipboard!');
+    },
+
+    triggerSwipe(direction, card) {
+      const targetCard = card || this.swipeCard || (this.digestItems && this.digestItems[0]);
+      if (direction === 'down') {
+        this.openPassFeedbackModal(targetCard);
+      } else if (direction === 'up') {
+        this.exitSwipeMode();
+        this.openJobStudioWithItem(targetCard);
+      } else if (direction === 'left') {
+        if (targetCard && targetCard.id) this.rateDigestInterest(targetCard, -1);
+      } else if (direction === 'right') {
+        if (targetCard) this.addDigestToPipeline(targetCard);
+      }
+    },
+
+    openDislikeModal(card) {
+      this.openPassFeedbackModal(card);
+    },
+
+    openSwipeDetailsModal(card) {
+      this.exitSwipeMode();
+      this.openJobStudioWithItem(card);
+    },
+
+    openPassFeedbackModal(card) {
+      this.dislikeModalOpen = false;
+      if (card && card.id) {
+        this.rateDigestInterest(card, -1);
+        this.showToast(`Passed on ${card.company || 'job'}`);
+      }
+    },
+
+    exitSwipeMode() {
+      this.dislikeModalOpen = false;
+      this.swipeDetailsOpen = false;
+    },
+
+    openJobStudioWithItem(card) {
+      if (card) {
+        this.openJobStudio(card);
+      }
     },
 
     showToast(msg) {

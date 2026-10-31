@@ -14,13 +14,21 @@ WORKDIR /app
 
 COPY backend/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
-RUN playwright install chromium --with-deps
+
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN playwright install chromium --with-deps && chmod -R 777 /ms-playwright
 
 COPY backend/app /app/app
 COPY frontend /app/frontend
 
 ENV DATA_DIR=/app/data
 ENV CVS_DIR=/app/data/CVs
+
+RUN useradd -m -u 10001 appuser && \
+    mkdir -p /app/data /app/data/CVs /app/data/backups && \
+    chown -R appuser:appuser /app
+
+USER appuser
 
 EXPOSE 8000
 

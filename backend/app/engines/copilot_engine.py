@@ -186,7 +186,7 @@ def execute_ingest_action(conn: sqlite3.Connection, url: str, user_message: str)
         job_text = f"Job listing imported via Career Coach from {clean_url}"
         
     cand_profile = get_candidate_profile_dict(conn)
-    analysis = analyze_job_fit(job_text, cand_profile, pref_title=pref_title)
+    analysis = analyze_job_fit(job_text, cand_profile, url=clean_url, pref_title=pref_title)
     
     company = analysis.get("company") or "Target Company"
     title = analysis.get("title") or pref_title or "Position"

@@ -2,6 +2,7 @@ import sqlite3
 import json
 from datetime import datetime, timezone
 from pathlib import Path
+from contextlib import contextmanager
 from app.core.config import settings
 
 def get_db():
@@ -11,9 +12,47 @@ def get_db():
     conn.execute("PRAGMA busy_timeout = 30000")
     return conn
 
+@contextmanager
+def get_db_session():
+    """Context manager for SQLite connections that guarantees safe closure."""
+    conn = get_db()
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+def get_db_dependency():
+    """FastAPI dependency yielding a connection and closing it on completion."""
+    conn = get_db()
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+def normalize_existing_digest_rows(conn=None):
+    """Normalize un-normalized digest rows only, avoiding redundant full-table re-evaluation."""
+    close_at_end = False
+    if conn is None:
+        conn = get_db()
+        close_at_end = True
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM discovery_digest WHERE yoe_min IS NULL AND is_archived = 0")
+        rows = cursor.fetchall()
+        return len(rows)
+    finally:
+        if close_at_end:
+            conn.close()
+
 def init_db():
     """Initializes all database tables with support for multiple candidates and dynamic profiles."""
     conn = get_db()
+    try:
+        _do_init_db(conn)
+    finally:
+        conn.close()
+
+def _do_init_db(conn):
     cursor = conn.cursor()
     
     # 1. Candidate Master Profiles

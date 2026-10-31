@@ -3,9 +3,9 @@ from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from app.core.database import get_db
+from app.core.database import get_db, get_db_session
 from app.models.job import RatingRequest
-from app.models.digest import CompanyCreate
+from app.models.digest import CompanyCreate, ScanStartRequest
 from app.engines.scraper_engine import stream_opportunity_scan
 
 router = APIRouter(prefix="/api/v1/digest", tags=["digest"])
@@ -93,9 +93,11 @@ def get_digest(
     elif sort_by == "date_desc": order_clause = "ORDER BY posted_date DESC"
     elif sort_by == "salary_desc": order_clause = "ORDER BY salary_max DESC"
     
-    cursor.execute(f"SELECT * FROM discovery_digest {where_clause} {order_clause}", params)
-    rows = cursor.fetchall()
-    conn.close()
+    try:
+        cursor.execute(f"SELECT * FROM discovery_digest {where_clause} {order_clause}", params)
+        rows = cursor.fetchall()
+    finally:
+        conn.close()
     
     items = []
     for r in rows:
@@ -131,7 +133,8 @@ def get_digest(
 def scan_digest_stream(
     location: Optional[str] = None,
     role: Optional[str] = None,
-    include_linkedin: bool = True
+    include_linkedin: bool = True,
+    tax_free_only: bool = False
 ):
     target_locations = [location] if location and location != "all" else None
     target_roles = [role] if role and role != "all" else None
@@ -148,63 +151,80 @@ def scan_digest_stream(
         }
     )
 
+@router.post("/scan/start")
+def start_scan_job(req: ScanStartRequest):
+    return {
+        "status": "started",
+        "location": req.location,
+        "role": req.role,
+        "include_linkedin": req.include_linkedin,
+        "tax_free_only": req.tax_free_only
+    }
+
 @router.post("/{digest_id}/add-to-pipeline")
 def add_digest_to_pipeline(digest_id: int):
     conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM discovery_digest WHERE id = ?", (digest_id,))
-    row = cursor.fetchone()
-    if not row:
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM discovery_digest WHERE id = ?", (digest_id,))
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Digest item not found")
+            
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute("""
+        INSERT INTO jobs (
+            candidate_id, company, title, url, location, salary, status, match_score,
+            job_description, tailored_profile, is_archived, interest_rating, created_at, updated_at
+        ) VALUES (1, ?, ?, ?, ?, ?, 'wishlist', ?, ?, 'technical_pm', 0, ?, ?, ?)
+        """, (
+            row["company"],
+            row["title"],
+            row["url"],
+            row["location"],
+            row["salary_display"],
+            row["match_score"],
+            row["snippet"],
+            row["interest_rating"],
+            now_str,
+            now_str
+        ))
+        job_id = cursor.lastrowid
+        cursor.execute("UPDATE discovery_digest SET in_pipeline = 1 WHERE id = ?", (digest_id,))
+        conn.commit()
+        return {"status": "added", "job_id": job_id}
+    finally:
         conn.close()
-        raise HTTPException(status_code=404, detail="Digest item not found")
-        
-    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute("""
-    INSERT INTO jobs (
-        candidate_id, company, title, url, location, salary, status, match_score,
-        job_description, tailored_profile, is_archived, interest_rating, created_at, updated_at
-    ) VALUES (1, ?, ?, ?, ?, ?, 'wishlist', ?, ?, 'technical_pm', 0, ?, ?, ?)
-    """, (
-        row["company"],
-        row["title"],
-        row["url"],
-        row["location"],
-        row["salary_display"],
-        row["match_score"],
-        row["snippet"],
-        row["interest_rating"],
-        now_str,
-        now_str
-    ))
-    job_id = cursor.lastrowid
-    cursor.execute("UPDATE discovery_digest SET in_pipeline = 1 WHERE id = ?", (digest_id,))
-    conn.commit()
-    conn.close()
-    return {"status": "added", "job_id": job_id}
 
 @router.post("/{digest_id}/interest")
 def rate_digest_interest(digest_id: int, req: RatingRequest):
     conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE discovery_digest SET interest_rating = ? WHERE id = ?", (req.rating, digest_id))
-    conn.commit()
-    conn.close()
-    return {"status": "success", "rating": req.rating}
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE discovery_digest SET interest_rating = ? WHERE id = ?", (req.rating, digest_id))
+        conn.commit()
+        return {"status": "success", "rating": req.rating}
+    finally:
+        conn.close()
 
 @router.post("/{digest_id}/archive")
 def archive_digest_item(digest_id: int):
     conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE discovery_digest SET is_archived = 1 WHERE id = ?", (digest_id,))
-    conn.commit()
-    conn.close()
-    return {"status": "archived"}
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE discovery_digest SET is_archived = 1 WHERE id = ?", (digest_id,))
+        conn.commit()
+        return {"status": "archived"}
+    finally:
+        conn.close()
 
 @router.post("/{digest_id}/unarchive")
 def unarchive_digest_item(digest_id: int):
     conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE discovery_digest SET is_archived = 0 WHERE id = ?", (digest_id,))
-    conn.commit()
-    conn.close()
-    return {"status": "unarchived"}
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE discovery_digest SET is_archived = 0 WHERE id = ?", (digest_id,))
+        conn.commit()
+        return {"status": "unarchived"}
+    finally:
+        conn.close()

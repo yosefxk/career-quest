@@ -26,12 +26,18 @@ class GenerateRequest(BaseModel):
     custom_summary: Optional[str] = None
     selected_bullets: Optional[List[str]] = None
 
+def get_master_cv_path() -> Path:
+    """Returns dynamic Path to master CV within settings.DATA_DIR."""
+    return Path(settings.DATA_DIR) / "master_cv.pdf"
+
 def get_active_profile_dict():
     conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM candidate_profiles WHERE is_active = 1 LIMIT 1")
-    row = cursor.fetchone()
-    conn.close()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM candidate_profiles WHERE is_active = 1 LIMIT 1")
+        row = cursor.fetchone()
+    finally:
+        conn.close()
     if not row:
         return {
             "full_name": "Candidate Name",
@@ -91,20 +97,28 @@ def generate_cv(req: GenerateRequest):
     
     if req.job_id:
         conn = get_db()
-        cursor = conn.cursor()
-        cursor.execute("UPDATE jobs SET cv_pdf_filename = ? WHERE id = ?", (pdf_rel_path, req.job_id))
-        conn.commit()
-        conn.close()
+        try:
+            cursor = conn.cursor()
+            bullets_json = json.dumps(req.selected_bullets) if req.selected_bullets is not None else None
+            cursor.execute(
+                "UPDATE jobs SET cv_pdf_filename = ?, custom_summary = COALESCE(?, custom_summary), selected_bullets_json = COALESCE(?, selected_bullets_json) WHERE id = ?",
+                (pdf_rel_path, req.custom_summary, bullets_json, req.job_id)
+            )
+            conn.commit()
+        finally:
+            conn.close()
         
     return {"status": "generated", "filename": pdf_rel_path}
 
 @router.get("/jobs/{job_id}/cv.pdf")
 def get_job_cv_pdf(job_id: int):
     conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
-    row = cursor.fetchone()
-    conn.close()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
+        row = cursor.fetchone()
+    finally:
+        conn.close()
     if not row:
         raise HTTPException(status_code=404, detail="Job not found")
         
@@ -128,10 +142,12 @@ def get_job_cv_pdf(job_id: int):
     pdf_rel_path = generate_cv_pdf(html, folder_name, candidate_name=cand_name, markdown_content=md)
     
     conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE jobs SET cv_pdf_filename = ? WHERE id = ?", (pdf_rel_path, job_id))
-    conn.commit()
-    conn.close()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE jobs SET cv_pdf_filename = ? WHERE id = ?", (pdf_rel_path, job_id))
+        conn.commit()
+    finally:
+        conn.close()
     
     full_path = Path(settings.cvs_path) / pdf_rel_path
     return FileResponse(path=str(full_path), media_type="application/pdf", filename=f"{cand_name}.pdf")
@@ -139,10 +155,12 @@ def get_job_cv_pdf(job_id: int):
 @router.get("/jobs/{job_id}/cv.md", response_class=PlainTextResponse)
 def get_job_cv_markdown(job_id: int):
     conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
-    row = cursor.fetchone()
-    conn.close()
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
+        row = cursor.fetchone()
+    finally:
+        conn.close()
     if not row:
         raise HTTPException(status_code=404, detail="Job not found")
         

@@ -1,5 +1,9 @@
 import re
 import json
+import socket
+import ipaddress
+import urllib.parse
+from zipfile import BadZipFile
 import httpx
 from bs4 import BeautifulSoup
 from io import BytesIO
@@ -27,14 +31,58 @@ def clean_input_url(url: str) -> str:
     cleaned = url.strip()
     return re.sub(r':(8095|8096|8098|8099|8085|8000|5000|3000)/?$', '', cleaned)
 
+def is_safe_job_url(url: str) -> bool:
+    """Validates that a URL uses http/https and does not resolve to private/loopback/cloud metadata IP addresses."""
+    if not url:
+        return False
+    try:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme.lower() not in ("http", "https"):
+            return False
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+        hostname_lower = hostname.lower()
+        if hostname_lower in ("localhost", "127.0.0.1", "::1", "host.docker.internal"):
+            return False
+        port = parsed.port or (443 if parsed.scheme.lower() == "https" else 80)
+        addr_infos = socket.getaddrinfo(hostname, port)
+        if not addr_infos:
+            return False
+        for addr in addr_infos:
+            ip_str = addr[4][0]
+            ip = ipaddress.ip_address(ip_str)
+            if (
+                ip.is_private
+                or ip.is_loopback
+                or ip.is_link_local
+                or ip.is_reserved
+                or ip.is_multicast
+                or ip.is_unspecified
+            ):
+                return False
+        return True
+    except Exception:
+        return False
+
 def extract_job_text_from_url(url: str) -> Tuple[str, str, str]:
     cleaned_url = clean_input_url(url)
-    if not cleaned_url: return "", "", ""
+    if not cleaned_url or not is_safe_job_url(cleaned_url):
+        return "", "", cleaned_url
     try:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         }
-        with httpx.Client(follow_redirects=True, timeout=12.0, headers=headers) as client:
+
+        def check_redirect(response: httpx.Response):
+            if response.is_redirect:
+                loc = response.headers.get("Location")
+                if loc:
+                    resolved = urllib.parse.urljoin(str(response.url), loc)
+                    if not is_safe_job_url(resolved):
+                        raise ValueError(f"SSRF blocked redirect to unsafe URL: {resolved}")
+
+        with httpx.Client(follow_redirects=True, timeout=12.0, headers=headers, event_hooks={"response": [check_redirect]}) as client:
             resp = client.get(cleaned_url)
             if resp.status_code != 200: return "", "", ""
             soup = BeautifulSoup(resp.text, 'html.parser')
@@ -57,10 +105,16 @@ def extract_text_from_file_bytes(filename: str, file_bytes: bytes) -> str:
         except Exception as e:
             print(f"PDF read error: {e}")
             return ""
-    elif lower_fn.endswith((".docx", ".doc")):
+    elif lower_fn.endswith(".doc") and not lower_fn.endswith(".docx"):
+        raise ValueError("Legacy .doc format is not supported. Please convert and upload as .docx or .pdf.")
+    elif lower_fn.endswith(".docx"):
         try:
             import docx
-            doc = docx.Document(BytesIO(file_bytes))
+            try:
+                doc = docx.Document(BytesIO(file_bytes))
+            except (BadZipFile, Exception) as e:
+                print(f"DOCX read error: {e}")
+                return ""
             paragraphs = [p.text for p in doc.paragraphs if p.text.strip()]
             for table in doc.tables:
                 for row in table.rows:
@@ -150,7 +204,7 @@ def get_directives_block(directives: Optional[List[Dict[str, Any]]] = None) -> s
     rules = "\n".join([f"- [{d['category'].upper()}] {d['rule_text']}" for d in directives])
     return f"\n\nSTRICT USER DIRECTIVES & TAUGHT STYLE PREFERENCES (ENFORCE THESE RULES):\n{rules}\n"
 
-def analyze_job_fit(job_text: str, candidate_profile: Dict[str, Any], url: str = "", directives: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
+def analyze_job_fit(job_text: str, candidate_profile: Dict[str, Any], url: str = "", directives: Optional[List[Dict[str, Any]]] = None, pref_company: Optional[str] = None, pref_title: Optional[str] = None, **kwargs: Any) -> Dict[str, Any]:
     cand_name = candidate_profile.get("full_name", "Candidate")
     cand_skills = candidate_profile.get("skills", {})
     archetypes = candidate_profile.get("archetypes", {})
@@ -196,13 +250,17 @@ Analyze this position and output strictly JSON:
     result = llm.generate_json(prompt, system_prompt="Output valid JSON only.")
     if not result:
         return {
-            "company": "Target Company",
-            "title": "Target Role",
+            "company": pref_company or "Target Company",
+            "title": pref_title or "Target Role",
             "match_score": 85,
             "tailored_summary": candidate_profile.get("tagline", "Experienced technical leader."),
             "recruiter_inmail": "Hi, I noticed the open position and would love to connect.",
             "star_interview_prep": []
         }
+    if pref_company and (not result.get("company") or result.get("company") == "Extracted Company Name"):
+        result["company"] = pref_company
+    if pref_title and (not result.get("title") or result.get("title") == "Clean Role Title"):
+        result["title"] = pref_title
     return result
 
 def audit_ats_compliance(html_content: str, candidate_profile: Dict[str, Any], job_description: Optional[str] = None) -> Dict[str, Any]:

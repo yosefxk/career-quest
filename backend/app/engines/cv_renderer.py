@@ -2,7 +2,7 @@ import re
 import os
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from jinja2 import Template
+from jinja2 import Template, Environment
 from playwright.sync_api import sync_playwright
 from app.core.config import settings
 
@@ -198,7 +198,7 @@ CV_HTML_TEMPLATE = """<!DOCTYPE html>
   </div>
   <ul class="bullets-list">
     {% for bullet in exp.active_bullets %}
-    <li>{{ bullet.text | safe }}</li>
+    <li>{{ bullet.text }}</li>
     {% endfor %}
   </ul>
 </div>
@@ -236,7 +236,8 @@ def filter_experience_bullets(experience_list: List[Dict[str, Any]], selected_bu
     return filtered
 
 def render_cv_html(profile_data: Dict[str, Any], custom_summary: Optional[str] = None, selected_bullet_ids: Optional[List[str]] = None) -> str:
-    template = Template(CV_HTML_TEMPLATE)
+    env = Environment(autoescape=True)
+    template = env.from_string(CV_HTML_TEMPLATE)
     filtered_exp = filter_experience_bullets(profile_data.get("experience", []), selected_bullet_ids)
     return template.render(
         profile=profile_data,
@@ -307,6 +308,7 @@ def generate_cv_pdf(html_content: str, folder_name: str, candidate_name: str = "
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"])
         page = browser.new_page()
+        page.route("**/*", lambda route: route.abort() if route.request.url.lower().startswith("file://") or not (route.request.url.lower().startswith("http://") or route.request.url.lower().startswith("https://") or route.request.url.lower().startswith("data:")) else route.continue_())
         page.set_content(html_content, wait_until="networkidle")
         page.pdf(
             path=str(pdf_path),

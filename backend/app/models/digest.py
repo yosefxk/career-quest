@@ -20,3 +20,9 @@ class CompanyCreate(BaseModel):
     notes: Optional[str] = None
     region: Optional[str] = "Global"
     category: Optional[str] = "Tech"
+
+class ScanStartRequest(BaseModel):
+    location: Optional[str] = None
+    role: Optional[str] = None
+    include_linkedin: bool = True
+    tax_free_only: bool = False
