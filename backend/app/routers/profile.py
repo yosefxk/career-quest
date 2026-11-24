@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from app.core.config import settings
-from app.core.database import get_db
+from app.core.database import get_db, get_db_session
 from app.models.profile import CandidateProfile, ProfileUpdateRequest, CareerPreferences, TextIngestRequest, CommitProfileRequest
 from app.engines.job_analyzer import parse_uploaded_resume, parse_raw_resume_text
 
@@ -48,57 +48,54 @@ def row_to_profile(row) -> CandidateProfile:
 
 @router.get("", response_model=CandidateProfile)
 def get_active_profile():
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM candidate_profiles WHERE is_active = 1 ORDER BY id ASC LIMIT 1")
-    row = cursor.fetchone()
-    conn.close()
+    with get_db_session() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM candidate_profiles WHERE is_active = 1 ORDER BY id ASC LIMIT 1")
+        row = cursor.fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="No active candidate profile found")
     return row_to_profile(row)
 
 @router.put("", response_model=CandidateProfile)
 def update_active_profile(update: ProfileUpdateRequest):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id FROM candidate_profiles WHERE is_active = 1 ORDER BY id ASC LIMIT 1")
-    row = cursor.fetchone()
-    if not row:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Profile not found")
-        
-    profile_id = row["id"]
-    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    
-    fields = []
-    values = []
-    
-    if update.is_onboarded is not None: fields.append("is_onboarded = ?"); values.append(1 if update.is_onboarded else 0)
-    if update.full_name is not None: fields.append("full_name = ?"); values.append(update.full_name)
-    if update.email is not None: fields.append("email = ?"); values.append(update.email)
-    if update.phone is not None: fields.append("phone = ?"); values.append(update.phone)
-    if update.location is not None: fields.append("location = ?"); values.append(update.location)
-    if update.citizenship is not None: fields.append("citizenship = ?"); values.append(update.citizenship)
-    if update.linkedin_url is not None: fields.append("linkedin_url = ?"); values.append(update.linkedin_url)
-    if update.github_url is not None: fields.append("github_url = ?"); values.append(update.github_url)
-    if update.portfolio_url is not None: fields.append("portfolio_url = ?"); values.append(update.portfolio_url)
-    if update.tagline is not None: fields.append("tagline = ?"); values.append(update.tagline)
-    if update.archetypes is not None: fields.append("archetypes_json = ?"); values.append(json.dumps({k: v.model_dump() for k, v in update.archetypes.items()}))
-    if update.experience is not None: fields.append("experience_json = ?"); values.append(json.dumps([e.model_dump() for e in update.experience]))
-    if update.education is not None: fields.append("education_json = ?"); values.append(json.dumps([e.model_dump() for e in update.education]))
-    if update.skills is not None: fields.append("skills_json = ?"); values.append(json.dumps(update.skills))
-    if update.preferences is not None: fields.append("preferences_json = ?"); values.append(json.dumps(update.preferences.model_dump()))
-    
-    if fields:
-        fields.append("updated_at = ?")
-        values.append(now_str)
-        values.append(profile_id)
-        cursor.execute(f"UPDATE candidate_profiles SET {', '.join(fields)} WHERE id = ?", values)
-        conn.commit()
-        
-    cursor.execute("SELECT * FROM candidate_profiles WHERE id = ?", (profile_id,))
-    updated_row = cursor.fetchone()
-    conn.close()
+    with get_db_session() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM candidate_profiles WHERE is_active = 1 ORDER BY id ASC LIMIT 1")
+        row = cursor.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Profile not found")
+
+        profile_id = row["id"]
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+        fields = []
+        values = []
+
+        if update.is_onboarded is not None: fields.append("is_onboarded = ?"); values.append(1 if update.is_onboarded else 0)
+        if update.full_name is not None: fields.append("full_name = ?"); values.append(update.full_name)
+        if update.email is not None: fields.append("email = ?"); values.append(update.email)
+        if update.phone is not None: fields.append("phone = ?"); values.append(update.phone)
+        if update.location is not None: fields.append("location = ?"); values.append(update.location)
+        if update.citizenship is not None: fields.append("citizenship = ?"); values.append(update.citizenship)
+        if update.linkedin_url is not None: fields.append("linkedin_url = ?"); values.append(update.linkedin_url)
+        if update.github_url is not None: fields.append("github_url = ?"); values.append(update.github_url)
+        if update.portfolio_url is not None: fields.append("portfolio_url = ?"); values.append(update.portfolio_url)
+        if update.tagline is not None: fields.append("tagline = ?"); values.append(update.tagline)
+        if update.archetypes is not None: fields.append("archetypes_json = ?"); values.append(json.dumps({k: v.model_dump() for k, v in update.archetypes.items()}))
+        if update.experience is not None: fields.append("experience_json = ?"); values.append(json.dumps([e.model_dump() for e in update.experience]))
+        if update.education is not None: fields.append("education_json = ?"); values.append(json.dumps([e.model_dump() for e in update.education]))
+        if update.skills is not None: fields.append("skills_json = ?"); values.append(json.dumps(update.skills))
+        if update.preferences is not None: fields.append("preferences_json = ?"); values.append(json.dumps(update.preferences.model_dump()))
+
+        if fields:
+            fields.append("updated_at = ?")
+            values.append(now_str)
+            values.append(profile_id)
+            cursor.execute(f"UPDATE candidate_profiles SET {', '.join(fields)} WHERE id = ?", values)
+            conn.commit()
+
+        cursor.execute("SELECT * FROM candidate_profiles WHERE id = ?", (profile_id,))
+        updated_row = cursor.fetchone()
     return row_to_profile(updated_row)
 
 def backup_profile_to_file() -> Optional[str]:
@@ -247,8 +244,6 @@ def commit_profile_update(req: CommitProfileRequest):
     parsed = req.profile_data
     backup_file = backup_profile_to_file()
     
-    conn = get_db()
-    cursor = conn.cursor()
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     
     pref_val = None
@@ -298,11 +293,12 @@ def commit_profile_update(req: CommitProfileRequest):
     fields.append("updated_at = ?")
     vals.append(now_str)
 
-    cursor.execute(f"UPDATE candidate_profiles SET {', '.join(fields)} WHERE is_active = 1", vals)
-    conn.commit()
-    cursor.execute("SELECT * FROM candidate_profiles WHERE is_active = 1 LIMIT 1")
-    row = cursor.fetchone()
-    conn.close()
+    with get_db_session() as conn:
+        cursor = conn.cursor()
+        cursor.execute(f"UPDATE candidate_profiles SET {', '.join(fields)} WHERE is_active = 1", vals)
+        conn.commit()
+        cursor.execute("SELECT * FROM candidate_profiles WHERE is_active = 1 LIMIT 1")
+        row = cursor.fetchone()
     return {
         "status": "success",
         "backup_created": backup_file,
@@ -316,33 +312,32 @@ def reset_active_profile():
     Creates an automatic backup snapshot first to protect historical data.
     """
     backup_file = backup_profile_to_file()
-    conn = get_db()
-    cursor = conn.cursor()
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute("""
-    UPDATE candidate_profiles SET
-        is_onboarded = 0,
-        full_name = '',
-        email = '',
-        phone = '',
-        location = '',
-        citizenship = '',
-        linkedin_url = '',
-        github_url = '',
-        portfolio_url = '',
-        tagline = '',
-        archetypes_json = '{}',
-        experience_json = '[]',
-        education_json = '[]',
-        skills_json = '{}',
-        preferences_json = '{"target_roles": ["Software Engineer", "Technical Program Manager"], "target_locations": ["Israel", "United States", "Remote"], "target_seniority": ["Mid-Level", "Senior"], "include_linkedin": true, "remote_only": false, "min_salary_usd": 0}',
-        updated_at = ?
-    WHERE is_active = 1
-    """, (now_str,))
-    conn.commit()
-    cursor.execute("SELECT * FROM candidate_profiles WHERE is_active = 1 LIMIT 1")
-    row = cursor.fetchone()
-    conn.close()
+    with get_db_session() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        UPDATE candidate_profiles SET
+            is_onboarded = 0,
+            full_name = '',
+            email = '',
+            phone = '',
+            location = '',
+            citizenship = '',
+            linkedin_url = '',
+            github_url = '',
+            portfolio_url = '',
+            tagline = '',
+            archetypes_json = '{}',
+            experience_json = '[]',
+            education_json = '[]',
+            skills_json = '{}',
+            preferences_json = '{"target_roles": ["Software Engineer", "Technical Program Manager"], "target_locations": ["Israel", "United States", "Remote"], "target_seniority": ["Mid-Level", "Senior"], "include_linkedin": true, "remote_only": false, "min_salary_usd": 0}',
+            updated_at = ?
+        WHERE is_active = 1
+        """, (now_str,))
+        conn.commit()
+        cursor.execute("SELECT * FROM candidate_profiles WHERE is_active = 1 LIMIT 1")
+        row = cursor.fetchone()
     return row_to_profile(row)
 
 @router.get("/backups")

@@ -226,7 +226,6 @@ def _do_init_db(conn):
     conn.commit()
     seed_default_profile_if_empty(conn)
     seed_default_directives_if_empty(conn)
-    conn.close()
 
 def seed_default_profile_if_empty(conn):
     """If no candidate profile exists, seeds an initial profile template."""

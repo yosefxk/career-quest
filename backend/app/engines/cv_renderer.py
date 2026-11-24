@@ -307,15 +307,20 @@ def generate_cv_pdf(html_content: str, folder_name: str, candidate_name: str = "
             
     with sync_playwright() as p:
         browser = p.chromium.launch(args=["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"])
-        page = browser.new_page()
-        page.route("**/*", lambda route: route.abort() if route.request.url.lower().startswith("file://") or not (route.request.url.lower().startswith("http://") or route.request.url.lower().startswith("https://") or route.request.url.lower().startswith("data:")) else route.continue_())
-        page.set_content(html_content, wait_until="networkidle")
-        page.pdf(
-            path=str(pdf_path),
-            format="Letter",
-            print_background=True,
-            margin={"top": "0in", "right": "0in", "bottom": "0in", "left": "0in"}
-        )
-        browser.close()
+        try:
+            page = browser.new_page()
+            try:
+                page.route("**/*", lambda route: route.abort() if route.request.url.lower().startswith("file://") or not (route.request.url.lower().startswith("http://") or route.request.url.lower().startswith("https://") or route.request.url.lower().startswith("data:")) else route.continue_())
+                page.set_content(html_content, wait_until="networkidle")
+                page.pdf(
+                    path=str(pdf_path),
+                    format="Letter",
+                    print_background=True,
+                    margin={"top": "0in", "right": "0in", "bottom": "0in", "left": "0in"}
+                )
+            finally:
+                page.close()
+        finally:
+            browser.close()
         
     return f"{safe_folder}/{safe_name}.pdf"

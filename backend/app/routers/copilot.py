@@ -1,9 +1,9 @@
 import json
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
+from typing import Optional
 from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException
-from app.core.database import get_db
+from app.core.database import get_db_session
 from app.engines.copilot_engine import (
     process_copilot_turn,
     get_all_directives,
@@ -27,17 +27,16 @@ class DirectiveUpdateRequest(BaseModel):
 
 @router.get("/messages")
 def get_chat_messages(limit: int = 50):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("""
-    SELECT id, session_id, role, content, metadata_json, created_at 
-    FROM copilot_messages 
-    ORDER BY id ASC 
-    LIMIT ?
-    """, (limit,))
-    rows = cursor.fetchall()
-    conn.close()
-    
+    with get_db_session() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        SELECT id, session_id, role, content, metadata_json, created_at
+        FROM copilot_messages
+        ORDER BY id ASC
+        LIMIT ?
+        """, (limit,))
+        rows = cursor.fetchall()
+
     messages = []
     for r in rows:
         meta = json.loads(r["metadata_json"]) if r["metadata_json"] else {}
@@ -59,34 +58,30 @@ def send_chat_message(req: ChatRequest):
 
 @router.delete("/messages")
 def clear_chat_history():
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM copilot_messages")
-    conn.commit()
-    conn.close()
+    with get_db_session() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM copilot_messages")
+        conn.commit()
     return {"status": "cleared"}
 
 @router.get("/directives")
 def list_directives():
-    conn = get_db()
-    directives = get_all_directives(conn)
-    conn.close()
-    return directives
+    with get_db_session() as conn:
+        return get_all_directives(conn)
 
 @router.post("/directives")
 def create_directive(req: DirectiveCreateRequest):
     if not req.rule_text.strip():
         raise HTTPException(status_code=400, detail="Rule text cannot be empty")
-    conn = get_db()
-    cursor = conn.cursor()
     now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute("""
-    INSERT INTO user_directives (candidate_id, category, rule_text, is_active, source, created_at, updated_at)
-    VALUES (1, ?, ?, 1, 'manual', ?, ?)
-    """, (req.category or "cv_style", req.rule_text.strip(), now_str, now_str))
-    new_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
+    with get_db_session() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        INSERT INTO user_directives (candidate_id, category, rule_text, is_active, source, created_at, updated_at)
+        VALUES (1, ?, ?, 1, 'manual', ?, ?)
+        """, (req.category or "cv_style", req.rule_text.strip(), now_str, now_str))
+        new_id = cursor.lastrowid
+        conn.commit()
     return {
         "id": new_id,
         "category": req.category or "cv_style",
@@ -98,38 +93,36 @@ def create_directive(req: DirectiveCreateRequest):
 
 @router.patch("/directives/{directive_id}")
 def update_directive(directive_id: int, req: DirectiveUpdateRequest):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM user_directives WHERE id = ?", (directive_id,))
-    existing = cursor.fetchone()
-    if not existing:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Directive not found")
-        
-    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    fields = []
-    values = []
-    
-    if req.rule_text is not None:
-        fields.append("rule_text = ?")
-        values.append(req.rule_text.strip())
-    if req.category is not None:
-        fields.append("category = ?")
-        values.append(req.category)
-    if req.is_active is not None:
-        fields.append("is_active = ?")
-        values.append(1 if req.is_active else 0)
-        
-    if fields:
-        fields.append("updated_at = ?")
-        values.append(now_str)
-        values.append(directive_id)
-        cursor.execute(f"UPDATE user_directives SET {', '.join(fields)} WHERE id = ?", values)
-        conn.commit()
-        
-    cursor.execute("SELECT * FROM user_directives WHERE id = ?", (directive_id,))
-    row = cursor.fetchone()
-    conn.close()
+    with get_db_session() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM user_directives WHERE id = ?", (directive_id,))
+        existing = cursor.fetchone()
+        if not existing:
+            raise HTTPException(status_code=404, detail="Directive not found")
+
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        fields = []
+        values = []
+
+        if req.rule_text is not None:
+            fields.append("rule_text = ?")
+            values.append(req.rule_text.strip())
+        if req.category is not None:
+            fields.append("category = ?")
+            values.append(req.category)
+        if req.is_active is not None:
+            fields.append("is_active = ?")
+            values.append(1 if req.is_active else 0)
+
+        if fields:
+            fields.append("updated_at = ?")
+            values.append(now_str)
+            values.append(directive_id)
+            cursor.execute(f"UPDATE user_directives SET {', '.join(fields)} WHERE id = ?", values)
+            conn.commit()
+
+        cursor.execute("SELECT * FROM user_directives WHERE id = ?", (directive_id,))
+        row = cursor.fetchone()
     return {
         "id": row["id"],
         "category": row["category"],
@@ -142,9 +135,8 @@ def update_directive(directive_id: int, req: DirectiveUpdateRequest):
 
 @router.delete("/directives/{directive_id}")
 def delete_directive(directive_id: int):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM user_directives WHERE id = ?", (directive_id,))
-    conn.commit()
-    conn.close()
+    with get_db_session() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM user_directives WHERE id = ?", (directive_id,))
+        conn.commit()
     return {"status": "deleted", "id": directive_id}

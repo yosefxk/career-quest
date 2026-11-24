@@ -1,3 +1,4 @@
+import atexit
 import json
 import logging
 from typing import Dict, Any, Optional, List
@@ -37,6 +38,23 @@ class LLMGateway:
             self.model = os.getenv("GEMINI_MODEL")
         else:
             self.model = DEFAULT_MODELS.get(self.provider, settings.AI_MODEL)
+        self._client: Optional[httpx.Client] = None
+        atexit.register(self.close)
+
+    def _get_client(self) -> httpx.Client:
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.Client(
+                limits=httpx.Limits(max_connections=10, max_keepalive_connections=5, keepalive_expiry=30.0)
+            )
+        return self._client
+
+    def close(self) -> None:
+        if self._client is not None and not self._client.is_closed:
+            try:
+                self._client.close()
+            except Exception:
+                pass
+            self._client = None
 
     def _is_local_provider(self) -> bool:
         return self.provider in LOCAL_PROVIDERS
@@ -104,21 +122,21 @@ class LLMGateway:
         if response_json:
             payload["generationConfig"] = {"responseMimeType": "application/json"}
 
-        with httpx.Client(timeout=timeout) as client:
-            resp = client.post(url, headers=headers, json=payload)
-            if resp.status_code == 200:
-                return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-            elif resp.status_code in [429, 503] and self.model != "gemini-3.6-flash":
-                logger.warning(f"Gemini {self.model} returned {resp.status_code}. Retrying with gemini-3.6-flash...")
-                fallback_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
-                resp2 = client.post(fallback_url, headers=headers, json=payload)
-                if resp2.status_code == 200:
-                    return resp2.json()["candidates"][0]["content"]["parts"][0]["text"]
-                logger.error(f"Gemini Fallback error {resp2.status_code}: {resp2.text}")
-                return None
-            else:
-                logger.error(f"Gemini API error {resp.status_code}: {resp.text}")
-                return None
+        client = self._get_client()
+        resp = client.post(url, headers=headers, json=payload, timeout=timeout)
+        if resp.status_code == 200:
+            return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+        elif resp.status_code in [429, 503] and self.model != "gemini-3.6-flash":
+            logger.warning(f"Gemini {self.model} returned {resp.status_code}. Retrying with gemini-3.6-flash...")
+            fallback_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
+            resp2 = client.post(fallback_url, headers=headers, json=payload, timeout=timeout)
+            if resp2.status_code == 200:
+                return resp2.json()["candidates"][0]["content"]["parts"][0]["text"]
+            logger.error(f"Gemini Fallback error {resp2.status_code}: {resp2.text}")
+            return None
+        else:
+            logger.error(f"Gemini API error {resp.status_code}: {resp.text}")
+            return None
 
     def _call_openai_compatible(self, prompt: str, system_prompt: Optional[str], response_json: bool, timeout: float) -> Optional[str]:
         base_url = self._get_openai_compatible_base_url()
@@ -143,13 +161,13 @@ class LLMGateway:
         if response_json:
             payload["response_format"] = {"type": "json_object"}
 
-        with httpx.Client(timeout=timeout) as client:
-            resp = client.post(url, headers=headers, json=payload)
-            if resp.status_code == 200:
-                return resp.json()["choices"][0]["message"]["content"]
-            else:
-                logger.error(f"{self.provider} API error {resp.status_code}: {resp.text}")
-                return None
+        client = self._get_client()
+        resp = client.post(url, headers=headers, json=payload, timeout=timeout)
+        if resp.status_code == 200:
+            return resp.json()["choices"][0]["message"]["content"]
+        else:
+            logger.error(f"{self.provider} API error {resp.status_code}: {resp.text}")
+            return None
 
     def _call_anthropic(self, prompt: str, system_prompt: Optional[str], response_json: bool, timeout: float) -> Optional[str]:
         url = f"{settings.ANTHROPIC_BASE_URL}/messages"
@@ -166,13 +184,13 @@ class LLMGateway:
         if system_prompt:
             payload["system"] = system_prompt
 
-        with httpx.Client(timeout=timeout) as client:
-            resp = client.post(url, headers=headers, json=payload)
-            if resp.status_code == 200:
-                return resp.json()["content"][0]["text"]
-            else:
-                logger.error(f"Anthropic API error {resp.status_code}: {resp.text}")
-                return None
+        client = self._get_client()
+        resp = client.post(url, headers=headers, json=payload, timeout=timeout)
+        if resp.status_code == 200:
+            return resp.json()["content"][0]["text"]
+        else:
+            logger.error(f"Anthropic API error {resp.status_code}: {resp.text}")
+            return None
 
     def _call_ollama(self, prompt: str, system_prompt: Optional[str], response_json: bool, timeout: float) -> Optional[str]:
         url = f"{settings.OLLAMA_BASE_URL}/api/generate"
@@ -185,13 +203,13 @@ class LLMGateway:
         if response_json:
             payload["format"] = "json"
 
-        with httpx.Client(timeout=timeout) as client:
-            resp = client.post(url, json=payload)
-            if resp.status_code == 200:
-                return resp.json().get("response")
-            else:
-                logger.error(f"Ollama API error {resp.status_code}: {resp.text}")
-                return None
+        client = self._get_client()
+        resp = client.post(url, json=payload, timeout=timeout)
+        if resp.status_code == 200:
+            return resp.json().get("response")
+        else:
+            logger.error(f"Ollama API error {resp.status_code}: {resp.text}")
+            return None
 
     def generate_json(self, prompt: str, system_prompt: Optional[str] = None, timeout: float = 35.0) -> Optional[Dict[str, Any]]:
         raw = self.generate(prompt, system_prompt, response_json=True, timeout=timeout)
@@ -225,21 +243,21 @@ class LLMGateway:
         if system_prompt:
             payload["systemInstruction"] = {"parts": [{"text": system_prompt}]}
             
-        with httpx.Client(timeout=timeout) as client:
-            resp = client.post(url, headers=headers, json=payload)
-            if resp.status_code == 200:
-                return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
-            elif resp.status_code in [429, 503] and self.model != "gemini-3.6-flash":
-                logger.warning(f"Gemini {self.model} returned {resp.status_code}. Retrying with gemini-3.6-flash...")
-                fallback_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
-                resp2 = client.post(fallback_url, headers=headers, json=payload)
-                if resp2.status_code == 200:
-                    return resp2.json()["candidates"][0]["content"]["parts"][0]["text"]
-                logger.error(f"Gemini Fallback chat error {resp2.status_code}: {resp2.text}")
-                return None
-            else:
-                logger.error(f"Gemini Chat error {resp.status_code}: {resp.text}")
-                return None
+        client = self._get_client()
+        resp = client.post(url, headers=headers, json=payload, timeout=timeout)
+        if resp.status_code == 200:
+            return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+        elif resp.status_code in [429, 503] and self.model != "gemini-3.6-flash":
+            logger.warning(f"Gemini {self.model} returned {resp.status_code}. Retrying with gemini-3.6-flash...")
+            fallback_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
+            resp2 = client.post(fallback_url, headers=headers, json=payload, timeout=timeout)
+            if resp2.status_code == 200:
+                return resp2.json()["candidates"][0]["content"]["parts"][0]["text"]
+            logger.error(f"Gemini Fallback chat error {resp2.status_code}: {resp2.text}")
+            return None
+        else:
+            logger.error(f"Gemini Chat error {resp.status_code}: {resp.text}")
+            return None
 
     def _chat_openai_compatible(self, messages: list, system_prompt: Optional[str], timeout: float) -> Optional[str]:
         base_url = self._get_openai_compatible_base_url()
@@ -262,13 +280,13 @@ class LLMGateway:
             "messages": formatted,
             "temperature": 0.4
         }
-        with httpx.Client(timeout=timeout) as client:
-            resp = client.post(url, headers=headers, json=payload)
-            if resp.status_code == 200:
-                return resp.json()["choices"][0]["message"]["content"]
-            else:
-                logger.error(f"{self.provider} Chat error {resp.status_code}: {resp.text}")
-                return None
+        client = self._get_client()
+        resp = client.post(url, headers=headers, json=payload, timeout=timeout)
+        if resp.status_code == 200:
+            return resp.json()["choices"][0]["message"]["content"]
+        else:
+            logger.error(f"{self.provider} Chat error {resp.status_code}: {resp.text}")
+            return None
 
     def _chat_anthropic(self, messages: list, system_prompt: Optional[str], timeout: float) -> Optional[str]:
         url = f"{settings.ANTHROPIC_BASE_URL}/messages"
@@ -286,13 +304,13 @@ class LLMGateway:
         if system_prompt:
             payload["system"] = system_prompt
             
-        with httpx.Client(timeout=timeout) as client:
-            resp = client.post(url, headers=headers, json=payload)
-            if resp.status_code == 200:
-                return resp.json()["content"][0]["text"]
-            else:
-                logger.error(f"Anthropic Chat error {resp.status_code}: {resp.text}")
-                return None
+        client = self._get_client()
+        resp = client.post(url, headers=headers, json=payload, timeout=timeout)
+        if resp.status_code == 200:
+            return resp.json()["content"][0]["text"]
+        else:
+            logger.error(f"Anthropic Chat error {resp.status_code}: {resp.text}")
+            return None
 
     def _chat_ollama(self, messages: list, system_prompt: Optional[str], timeout: float) -> Optional[str]:
         url = f"{settings.OLLAMA_BASE_URL}/api/chat"
@@ -306,12 +324,12 @@ class LLMGateway:
             "messages": formatted,
             "stream": False
         }
-        with httpx.Client(timeout=timeout) as client:
-            resp = client.post(url, json=payload)
-            if resp.status_code == 200:
-                return resp.json().get("message", {}).get("content")
-            else:
-                logger.error(f"Ollama Chat error {resp.status_code}: {resp.text}")
-                return None
+        client = self._get_client()
+        resp = client.post(url, json=payload, timeout=timeout)
+        if resp.status_code == 200:
+            return resp.json().get("message", {}).get("content")
+        else:
+            logger.error(f"Ollama Chat error {resp.status_code}: {resp.text}")
+            return None
 
 llm = LLMGateway()

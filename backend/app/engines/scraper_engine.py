@@ -326,8 +326,23 @@ def stream_opportunity_scan(
     target_locations: Optional[List[str]] = None,
     include_linkedin: bool = True
 ) -> Generator[Dict[str, Any], None, None]:
-    
     conn = get_db()
+    try:
+        yield from _stream_opportunity_scan_with_conn(
+            conn,
+            target_roles=target_roles,
+            target_locations=target_locations,
+            include_linkedin=include_linkedin,
+        )
+    finally:
+        conn.close()
+
+def _stream_opportunity_scan_with_conn(
+    conn,
+    target_roles: Optional[List[str]] = None,
+    target_locations: Optional[List[str]] = None,
+    include_linkedin: bool = True
+) -> Generator[Dict[str, Any], None, None]:
     cursor = conn.cursor()
     
     # Load candidate profile & preferences from DB
@@ -607,7 +622,6 @@ def stream_opportunity_scan(
     active_count = cursor.fetchone()[0]
     cursor.execute("SELECT COUNT(*) FROM discovery_digest WHERE is_archived = 1")
     archived_count = cursor.fetchone()[0]
-    conn.close()
     
     yield {
         "step": "complete",

@@ -1,7 +1,7 @@
 import json
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from app.core.database import get_db, get_db_session
 from app.models.job import RatingRequest
@@ -21,7 +21,9 @@ def get_digest(
     min_match: Optional[int] = 0,
     sort_by: Optional[str] = "match_desc",
     show_archived: Optional[bool] = False,
-    interest: Optional[str] = "all"
+    interest: Optional[str] = "all",
+    limit: int = Query(500, ge=1, le=2000),
+    offset: int = Query(0, ge=0),
 ):
     conn = get_db()
     cursor = conn.cursor()
@@ -94,7 +96,7 @@ def get_digest(
     elif sort_by == "salary_desc": order_clause = "ORDER BY salary_max DESC"
     
     try:
-        cursor.execute(f"SELECT * FROM discovery_digest {where_clause} {order_clause}", params)
+        cursor.execute(f"SELECT * FROM discovery_digest {where_clause} {order_clause} LIMIT ? OFFSET ?", params + [limit, offset])
         rows = cursor.fetchall()
     finally:
         conn.close()

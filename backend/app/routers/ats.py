@@ -1,6 +1,6 @@
 import json
 from fastapi import APIRouter, HTTPException
-from app.core.database import get_db
+from app.core.database import get_db_session
 from app.engines.cv_renderer import render_cv_html
 from app.engines.job_analyzer import audit_ats_compliance
 
@@ -8,21 +8,19 @@ router = APIRouter(prefix="/api/v1", tags=["ats"])
 
 @router.post("/jobs/{job_id}/ats-audit")
 def run_job_ats_audit(job_id: int):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
-    job_row = cursor.fetchone()
-    if not job_row:
-        conn.close()
-        raise HTTPException(status_code=404, detail="Job not found")
-        
-    cursor.execute("SELECT * FROM candidate_profiles WHERE is_active = 1 LIMIT 1")
-    cand_row = cursor.fetchone()
-    conn.close()
-    
+    with get_db_session() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM jobs WHERE id = ?", (job_id,))
+        job_row = cursor.fetchone()
+        if not job_row:
+            raise HTTPException(status_code=404, detail="Job not found")
+
+        cursor.execute("SELECT * FROM candidate_profiles WHERE is_active = 1 LIMIT 1")
+        cand_row = cursor.fetchone()
+
     if not cand_row:
         raise HTTPException(status_code=400, detail="No active candidate profile")
-        
+
     profile_data = {
         "full_name": cand_row["full_name"],
         "email": cand_row["email"],
@@ -38,9 +36,9 @@ def run_job_ats_audit(job_id: int):
         "education": json.loads(cand_row["education_json"] or "[]"),
         "skills": json.loads(cand_row["skills_json"] or "{}")
     }
-    
+
     selected_bullets = json.loads(job_row["selected_bullets_json"]) if job_row["selected_bullets_json"] else None
     html = render_cv_html(profile_data, custom_summary=job_row["custom_summary"], selected_bullet_ids=selected_bullets)
-    
+
     audit = audit_ats_compliance(html, profile_data, job_description=job_row["job_description"])
     return audit

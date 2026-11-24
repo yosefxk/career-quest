@@ -23,31 +23,35 @@ def get_active_directives(conn: Optional[sqlite3.Connection] = None) -> List[Dic
     if conn is None:
         conn = get_db()
         close_after = True
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, category, rule_text, is_active, source, created_at FROM user_directives WHERE is_active = 1 ORDER BY id ASC")
-    rows = cursor.fetchall()
-    if close_after:
-        conn.close()
-    return [{"id": r["id"], "category": r["category"], "rule_text": r["rule_text"], "source": r["source"]} for r in rows]
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, category, rule_text, is_active, source, created_at FROM user_directives WHERE is_active = 1 ORDER BY id ASC")
+        rows = cursor.fetchall()
+        return [{"id": r["id"], "category": r["category"], "rule_text": r["rule_text"], "source": r["source"]} for r in rows]
+    finally:
+        if close_after:
+            conn.close()
 
 def get_all_directives(conn: Optional[sqlite3.Connection] = None) -> List[Dict[str, Any]]:
     close_after = False
     if conn is None:
         conn = get_db()
         close_after = True
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, category, rule_text, is_active, source, created_at FROM user_directives ORDER BY id ASC")
-    rows = cursor.fetchall()
-    if close_after:
-        conn.close()
-    return [{
-        "id": r["id"],
-        "category": r["category"],
-        "rule_text": r["rule_text"],
-        "is_active": bool(r["is_active"]),
-        "source": r["source"],
-        "created_at": r["created_at"]
-    } for r in rows]
+    try:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, category, rule_text, is_active, source, created_at FROM user_directives ORDER BY id ASC")
+        rows = cursor.fetchall()
+        return [{
+            "id": r["id"],
+            "category": r["category"],
+            "rule_text": r["rule_text"],
+            "is_active": bool(r["is_active"]),
+            "source": r["source"],
+            "created_at": r["created_at"]
+        } for r in rows]
+    finally:
+        if close_after:
+            conn.close()
 
 def get_candidate_profile_dict(conn: sqlite3.Connection) -> Dict[str, Any]:
     cursor = conn.cursor()
@@ -577,6 +581,12 @@ YOUR MISSION & OPERATIONAL POWERS:
 
 def process_copilot_turn(user_message: str, focused_job_id: Optional[int] = None) -> Dict[str, Any]:
     conn = get_db()
+    try:
+        return _process_copilot_turn_with_conn(conn, user_message, focused_job_id)
+    finally:
+        conn.close()
+
+def _process_copilot_turn_with_conn(conn: sqlite3.Connection, user_message: str, focused_job_id: Optional[int] = None) -> Dict[str, Any]:
     cursor = conn.cursor()
     
     cand_profile = get_candidate_profile_dict(conn)
@@ -653,7 +663,6 @@ INSTRUCTION: Warmly confirm the operational execution to the candidate. Present 
     """, (assistant_reply, json.dumps(assistant_meta), now_str))
     
     conn.commit()
-    conn.close()
     
     return {
         "reply": assistant_reply,
